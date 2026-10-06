@@ -241,10 +241,16 @@ def main():
             if old:  # keep yesterday's numbers, marked as not updated
                 stocks[cid] = dict(old, stale=True)
             continue
+        # sanity check: a target far from the price usually means the source mixed up
+        # share classes or currencies on foreign listings (e.g. a London GDR vs the home listing). Drop it.
+        if q.get("avg") and "." in sym and not (0.4 <= q["avg"] / q["px"] <= 2.5):
+            log(f"  {sym}: ignoring analyst targets ({q['avg']} vs price {q['px']}) as implausible")
+            q["avg"] = q["lo"] = q["hi"] = None
+            q["n"] = None
         chg = round((q["px"] / q["prev"] - 1) * 100, 2) if q.get("prev") else None
         # keep old target numbers if the source didn't return any today
         for k in ("avg", "lo", "hi", "n", "rating"):
-            if q.get(k) in (None, "") and old and old.get(k):
+            if q.get(k) in (None, "") and old and old.get(k) and not ("." in sym and k in ("avg", "lo", "hi", "n")):
                 q[k] = old[k]
         stocks[cid] = {
             "symbol": t["symbol"], "px": q["px"], "chg1d": chg,
