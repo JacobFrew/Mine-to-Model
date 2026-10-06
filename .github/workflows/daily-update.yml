@@ -1,0 +1,52 @@
+name: Daily stock update
+
+on:
+  schedule:
+    # GitHub schedules run on UTC time. These two times cover 6am Pacific in
+    # both summer (PDT = 13:00 UTC) and winter (PST = 14:00 UTC). The script
+    # skips whichever run isn't in the 6am Pacific hour.
+    - cron: "0 13 * * *"
+    - cron: "0 14 * * *"
+  workflow_dispatch: {}   # adds a "Run workflow" button for manual updates
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -r scripts/requirements.txt
+
+      - name: Fetch prices and analyst targets
+        run: python scripts/update_stocks.py
+        env:
+          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Save the new data (Vercel redeploys automatically)
+        run: |
+          git config user.name "mine-to-model-bot"
+          git config user.email "mine-to-model-bot@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "Nothing changed."
+          else
+            git commit -m "Daily stock update $(TZ=America/Los_Angeles date +%F)"
+            git push
+          fi

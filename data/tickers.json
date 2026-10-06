@@ -1,0 +1,262 @@
+{
+ "cameco": {
+  "symbol": "CCJ",
+  "yahoo": "CCJ"
+ },
+ "uec": {
+  "symbol": "UEC",
+  "yahoo": "UEC"
+ },
+ "bhp": {
+  "symbol": "BHP",
+  "yahoo": "BHP"
+ },
+ "sols": {
+  "symbol": "SOLS",
+  "yahoo": "SOLS"
+ },
+ "centrus": {
+  "symbol": "LEU",
+  "yahoo": "LEU"
+ },
+ "aspi": {
+  "symbol": "ASPI",
+  "yahoo": "ASPI"
+ },
+ "bwxt": {
+  "symbol": "BWXT",
+  "yahoo": "BWXT"
+ },
+ "constellation": {
+  "symbol": "CEG",
+  "yahoo": "CEG"
+ },
+ "vistra": {
+  "symbol": "VST",
+  "yahoo": "VST"
+ },
+ "talen": {
+  "symbol": "TLN",
+  "yahoo": "TLN"
+ },
+ "nextera": {
+  "symbol": "NEE",
+  "yahoo": "NEE"
+ },
+ "xenergy": {
+  "symbol": "XE",
+  "yahoo": "XE"
+ },
+ "oklo": {
+  "symbol": "OKLO",
+  "yahoo": "OKLO"
+ },
+ "tsmc": {
+  "symbol": "TSM",
+  "yahoo": "TSM"
+ },
+ "skhynix": {
+  "symbol": "SKHY",
+  "yahoo": "SKHY"
+ },
+ "micron": {
+  "symbol": "MU",
+  "yahoo": "MU"
+ },
+ "nvidia": {
+  "symbol": "NVDA",
+  "yahoo": "NVDA"
+ },
+ "amd": {
+  "symbol": "AMD",
+  "yahoo": "AMD"
+ },
+ "broadcom": {
+  "symbol": "AVGO",
+  "yahoo": "AVGO"
+ },
+ "marvell": {
+  "symbol": "MRVL",
+  "yahoo": "MRVL"
+ },
+ "dell": {
+  "symbol": "DELL",
+  "yahoo": "DELL"
+ },
+ "supermicro": {
+  "symbol": "SMCI",
+  "yahoo": "SMCI"
+ },
+ "gevernova": {
+  "symbol": "GEV",
+  "yahoo": "GEV"
+ },
+ "eaton": {
+  "symbol": "ETN",
+  "yahoo": "ETN"
+ },
+ "vertiv": {
+  "symbol": "VRT",
+  "yahoo": "VRT"
+ },
+ "peabody": {
+  "symbol": "BTU",
+  "yahoo": "BTU"
+ },
+ "core": {
+  "symbol": "CNR",
+  "yahoo": "CNR"
+ },
+ "oracle": {
+  "symbol": "ORCL",
+  "yahoo": "ORCL"
+ },
+ "coreweave": {
+  "symbol": "CRWV",
+  "yahoo": "CRWV"
+ },
+ "nebius": {
+  "symbol": "NBIS",
+  "yahoo": "NBIS"
+ },
+ "iren": {
+  "symbol": "IREN",
+  "yahoo": "IREN"
+ },
+ "apld": {
+  "symbol": "APLD",
+  "yahoo": "APLD"
+ },
+ "equinix": {
+  "symbol": "EQIX",
+  "yahoo": "EQIX"
+ },
+ "dlr": {
+  "symbol": "DLR",
+  "yahoo": "DLR"
+ },
+ "spacex": {
+  "symbol": "SPCX",
+  "yahoo": "SPCX"
+ },
+ "echostar": {
+  "symbol": "ECHO",
+  "yahoo": "ECHO"
+ },
+ "caterpillar": {
+  "symbol": "CAT",
+  "yahoo": "CAT"
+ },
+ "tesla": {
+  "symbol": "TSLA",
+  "yahoo": "TSLA"
+ },
+ "arista": {
+  "symbol": "ANET",
+  "yahoo": "ANET"
+ },
+ "credo": {
+  "symbol": "CRDO",
+  "yahoo": "CRDO"
+ },
+ "coherent": {
+  "symbol": "COHR",
+  "yahoo": "COHR"
+ },
+ "lumentum": {
+  "symbol": "LITE",
+  "yahoo": "LITE"
+ },
+ "corning": {
+  "symbol": "GLW",
+  "yahoo": "GLW"
+ },
+ "astera": {
+  "symbol": "ALAB",
+  "yahoo": "ALAB"
+ },
+ "eqt": {
+  "symbol": "EQT",
+  "yahoo": "EQT"
+ },
+ "williams": {
+  "symbol": "WMB",
+  "yahoo": "WMB"
+ },
+ "dominion": {
+  "symbol": "D",
+  "yahoo": "D"
+ },
+ "southern": {
+  "symbol": "SO",
+  "yahoo": "SO"
+ },
+ "entergy": {
+  "symbol": "ETR",
+  "yahoo": "ETR"
+ },
+ "aep": {
+  "symbol": "AEP",
+  "yahoo": "AEP"
+ },
+ "fcx": {
+  "symbol": "FCX",
+  "yahoo": "FCX"
+ },
+ "mp": {
+  "symbol": "MP",
+  "yahoo": "MP"
+ },
+ "asml": {
+  "symbol": "ASML",
+  "yahoo": "ASML"
+ },
+ "apple": {
+  "symbol": "AAPL",
+  "yahoo": "AAPL"
+ },
+ "alibaba": {
+  "symbol": "BABA",
+  "yahoo": "BABA"
+ },
+ "microsoft": {
+  "symbol": "MSFT",
+  "yahoo": "MSFT"
+ },
+ "amazon": {
+  "symbol": "AMZN",
+  "yahoo": "AMZN"
+ },
+ "google": {
+  "symbol": "GOOGL",
+  "yahoo": "GOOGL"
+ },
+ "meta": {
+  "symbol": "META",
+  "yahoo": "META"
+ },
+ "kazatomprom": {
+  "symbol": "KAP.L",
+  "yahoo": "KAP.L"
+ },
+ "samsung": {
+  "symbol": "005930.KS",
+  "yahoo": "005930.KS"
+ },
+ "foxconn": {
+  "symbol": "2317.TW",
+  "yahoo": "2317.TW"
+ },
+ "quanta": {
+  "symbol": "2382.TW",
+  "yahoo": "2382.TW"
+ },
+ "wistron": {
+  "symbol": "3231.TW",
+  "yahoo": "3231.TW"
+ },
+ "schneider": {
+  "symbol": "SU.PA",
+  "yahoo": "SU.PA"
+ }
+}

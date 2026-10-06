@@ -1,0 +1,1446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Interactive map of the AI data center supply chain with daily stock prices and analyst targets.">
+<title>Mine to Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: two supply lanes (uranium → reactor, silicon → rack) feed a full-width band of data center builders, then the buyers; an inspector shows the selected company's role and stock; below, an upside table and themes. */
+:root{
+  --bg:#EDF1F4; --surface:#FFFFFF; --band:#E2E8ED; --ink:#13202B; --muted:#52606C; --rule:#C7D1D9;
+  --atom:#1D5CF0; --atom-soft:#DCE5FD; --si:#9A620C; --si-soft:#F4E5C8; --coal:#5B5550; --coal-soft:#E3DFDA;
+  --dc:#5B4BC4; --dc-soft:#E6E2FA;
+  --pos:#137A4A; --pos-soft:#D3EEDF; --neg:#B83A26; --neg-soft:#F6DCD6; --flat:#DDE3E8;
+  --dim:.32;
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D141A; --surface:#151F28; --band:#1A2631; --ink:#E5ECF2; --muted:#92A2AF; --rule:#2B3946;
+  --atom:#7099FF; --atom-soft:#1B2A4C; --si:#E2A64C; --si-soft:#3A2C15; --coal:#B8AFA6; --coal-soft:#2B2825;
+  --dc:#A99CFF; --dc-soft:#272347;
+  --pos:#4CC38A; --pos-soft:#163527; --neg:#F07A66; --neg-soft:#3D1F1A; --flat:#26323D;
+  --dim:.28; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0D141A; --surface:#151F28; --band:#1A2631; --ink:#E5ECF2; --muted:#92A2AF; --rule:#2B3946;
+  --atom:#7099FF; --atom-soft:#1B2A4C; --si:#E2A64C; --si-soft:#3A2C15; --coal:#B8AFA6; --coal-soft:#2B2825;
+  --dc:#A99CFF; --dc-soft:#272347;
+  --pos:#4CC38A; --pos-soft:#163527; --neg:#F07A66; --neg-soft:#3D1F1A; --flat:#26323D;
+  --dim:.28; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55}
+.wrap{max-width:1360px;margin:0 auto;padding-inline:20px;padding-block:28px 64px}
+h1,h2,h3{font-family:var(--display);font-stretch:78%;text-wrap:balance;margin:0;line-height:1.05}
+a{color:var(--atom)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--atom);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* header */
+.top{display:grid;gap:14px;max-width:900px}
+.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:clamp(2.4rem,6vw,4rem);font-weight:800;letter-spacing:-.01em}
+.lede{margin:0;max-width:68ch;color:var(--muted);font-size:16px}
+.lede b{color:var(--ink);font-weight:600}
+.fuelpath{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.fuelpath span{background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:3px 7px;white-space:nowrap}
+.fuelpath i{font-style:normal;color:var(--atom)}
+.notice{margin-top:4px;font-size:13px;color:var(--muted);border-left:3px solid var(--rule);padding:2px 0 2px 10px;max-width:80ch}
+
+/* setup strip */
+.setup{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px;margin-top:22px}
+.setup div{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;display:grid;gap:4px;align-content:start}
+.setup b{font-family:var(--display);font-stretch:75%;font-size:1.7rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.setup span{font-size:13px;color:var(--muted)}
+
+.controls{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:center;margin-top:24px;padding-block:14px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.pick{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pick .lbl{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-right:4px}
+.pick button{border:1px solid var(--ink);background:transparent;border-radius:999px;padding:5px 13px;cursor:pointer;font-weight:600;font-size:14px}
+.pick button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.pick button.clear{border-color:var(--rule);font-weight:500;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend svg{flex:none}
+.legend .fut{width:22px;height:14px;border:1.5px dashed var(--muted);border-radius:3px}
+
+/* upside pill */
+.up{font-family:var(--mono);font-size:10.5px;font-weight:500;border-radius:3px;padding:0 4px;line-height:1.5;white-space:nowrap;font-variant-numeric:tabular-nums}
+.up.hi{background:var(--pos);color:var(--bg)}
+.up.mid{background:var(--pos-soft);color:var(--pos)}
+.up.lo{background:var(--flat);color:var(--ink)}
+.up.neg{background:var(--neg-soft);color:var(--neg)}
+.up.pv{background:transparent;color:var(--muted);border:1px solid var(--rule)}
+
+/* main grid */
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;margin-top:22px;align-items:start}
+.map{position:relative;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;min-width:0}
+.map svg.links{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:visible}
+.lane{display:grid;gap:8px;align-content:start;min-width:0}
+.lanehead{display:grid;gap:4px;padding-bottom:4px}
+.lanehead h2{font-size:1.45rem;font-weight:750;display:flex;gap:9px;align-items:center}
+.lanehead h2 .sw{width:12px;height:12px;border-radius:50%;flex:none}
+.lane.power .sw{background:var(--atom)} .lane.hw .sw{background:var(--si)}
+.lanehead p{margin:0;font-size:13px;color:var(--muted);max-width:60ch}
+.band{background:var(--band);border-radius:8px;padding:10px 12px 12px;display:grid;gap:8px}
+.bandhead{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.bandhead h3{font-size:1.02rem;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.bandhead p{margin:0;font-size:12.5px;color:var(--muted);flex:1 1 220px;min-width:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{position:relative;z-index:2;display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;cursor:pointer;
+  background:var(--surface);border:1.5px solid var(--rule);border-radius:6px;padding:5px 9px 6px;min-width:0;transition:opacity .2s,border-color .2s,background .2s}
+.chip .nm{display:flex;gap:6px;align-items:center}
+.chip .cn{font-weight:600;font-size:13.5px;line-height:1.2}
+.chip .ct{font-family:var(--mono);font-size:10.5px;color:var(--muted);line-height:1.3}
+.chip.future{border-style:dashed}
+.chip:hover{border-color:var(--ink)}
+.map.has-sel .chip:not(.on){opacity:var(--dim)}
+.lane.power .chip.on{border-color:var(--atom);background:var(--atom-soft)}
+.lane.hw .chip.on{border-color:var(--si);background:var(--si-soft)}
+.band.coal .chip.on{border-color:var(--coal);background:var(--coal-soft)}
+.dcband .chip.on{border-color:var(--dc);background:var(--dc-soft)}
+.chip.sel{box-shadow:0 0 0 3px var(--ink)}
+.band.coal{background:var(--coal-soft)}
+.dcband{grid-column:1/-1;background:var(--dc-soft);border-radius:8px;padding:12px 14px 14px;display:grid;gap:8px}
+.dcband .bandhead h3 .sw{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--dc);margin-right:8px;vertical-align:-1px}
+.buyers{grid-column:1/-1;background:var(--ink);color:var(--bg);border-radius:8px;padding:12px 14px 14px;display:grid;gap:10px}
+.buyers .bandhead p{color:inherit;opacity:.75}
+.buyers .chips{gap:10px}
+.buyers .chip{background:var(--bg);border-color:var(--bg);color:var(--ink);padding:8px 14px 9px}
+.buyers .chip .cn{font-family:var(--display);font-stretch:80%;font-size:1.15rem;font-weight:750}
+.buyers .chip.on{background:var(--bg);border-color:var(--atom)}
+.buyers .chip.sel{box-shadow:0 0 0 3px var(--atom)}
+
+/* inspector */
+.inspector{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:18px 18px 20px;display:grid;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.inspector h2{font-size:1.9rem;font-weight:780}
+.inspector .where{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:4px}
+.inspector .role{margin:0;font-size:15px;font-weight:500}
+.inspector ul.facts{margin:0;padding-left:18px;display:grid;gap:6px;font-size:14px}
+.inspector h4{margin:0 0 6px;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.rel{display:grid;gap:6px}
+.rel button{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;text-align:left;background:var(--bg);border:1px solid var(--rule);border-radius:6px;padding:6px 9px;cursor:pointer;font-size:13.5px}
+.rel button:hover{border-color:var(--ink)}
+.rel button b{font-weight:600}
+.rel button span{grid-column:1/-1;color:var(--muted);font-size:12.5px}
+.rel .none{font-size:13px;color:var(--muted);margin:0}
+.srcs{font-size:12.5px;display:flex;flex-wrap:wrap;gap:4px 12px}
+.sheetbar{display:none}
+.body{display:grid;gap:12px}
+
+.stock{border:1px solid var(--rule);border-radius:8px;padding:12px;display:grid;gap:9px;background:var(--bg)}
+.stock .row1{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.stock .tk{font-family:var(--mono);font-size:12px;font-weight:500}
+.stock .px{font-family:var(--display);font-stretch:80%;font-size:1.6rem;font-weight:780;font-variant-numeric:tabular-nums}
+.stock .dt{font-size:12px;color:var(--muted)}
+.stock .tgt{font-size:14px}
+.stock .tgt b.p{color:var(--pos)} .stock .tgt b.n{color:var(--neg)}
+.stock .meta{font-size:12.5px;color:var(--muted)}
+.stock dl{margin:0;display:grid;gap:6px;font-size:13.5px}
+.stock dt{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stock dd{margin:0 0 4px}
+.stock .priv{font-size:13.5px;margin:0}
+
+/* range bar */
+.rb{position:relative;height:30px}
+.rb .track{position:absolute;left:0;right:0;top:12px;height:6px;border-radius:3px;background:var(--flat)}
+.rb .span{position:absolute;top:12px;height:6px;border-radius:3px;background:var(--pos-soft);border:1px solid var(--pos)}
+.rb .avg{position:absolute;top:7px;width:2px;height:16px;background:var(--pos)}
+.rb .dot{position:absolute;top:10px;width:10px;height:10px;border-radius:50%;background:var(--ink);border:2px solid var(--surface);transform:translateX(-5px)}
+.rb .lab{position:absolute;top:21px;font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap}
+.rbl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:-4px}
+
+/* upside section */
+section.block{margin-top:56px}
+section.block>h2{font-size:2rem;font-weight:780}
+section.block>p.sub{margin:8px 0 0;color:var(--muted);max-width:72ch}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.filters button{border:1px solid var(--rule);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:13.5px;cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tablewrap{overflow-x:auto;margin-top:14px;border:1px solid var(--rule);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:860px;font-size:14px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:middle}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;background:var(--surface);position:sticky;top:0}
+th button{all:unset;cursor:pointer;color:inherit}
+th button:focus-visible{outline:2px solid var(--atom)}
+th button[aria-sort]::after{content:" ↓"}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--bg)}
+tbody tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+td .co{font-weight:600}
+td .tkc{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+td .lk{font-size:12.5px;color:var(--muted)}
+td .stale{font-size:11px;color:var(--neg)}
+.minirb{position:relative;width:150px;height:14px}
+.minirb .track{position:absolute;left:0;right:0;top:6px;height:3px;background:var(--flat);border-radius:2px}
+.minirb .span{position:absolute;top:5px;height:5px;background:var(--pos-soft);border:1px solid var(--pos);border-radius:2px}
+.minirb .avg{position:absolute;top:2px;width:2px;height:11px;background:var(--pos)}
+.minirb .dot{position:absolute;top:3px;width:8px;height:8px;border-radius:50%;background:var(--ink);transform:translateX(-4px)}
+.risk{font-family:var(--mono);font-size:11px;border-radius:3px;padding:1px 6px;white-space:nowrap}
+.risk.r1{background:var(--pos-soft);color:var(--pos)}
+.risk.r2{background:var(--flat);color:var(--ink)}
+.risk.r3{background:var(--neg-soft);color:var(--neg)}
+.risk.r4{background:var(--neg);color:var(--bg)}
+
+.themes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:14px;margin-top:20px}
+.theme{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px 18px 18px;display:grid;gap:10px;align-content:start}
+.theme .hd{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.theme h3{font-size:1.35rem;font-weight:760}
+.theme .tks{display:flex;flex-wrap:wrap;gap:6px}
+.theme .tks button{font-family:var(--mono);font-size:12px;border:1px solid var(--rule);background:var(--bg);border-radius:4px;padding:2px 7px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.theme p{margin:0;font-size:14px}
+.theme p.watch{color:var(--muted);font-size:13.5px}
+.theme p b{font-weight:600}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:14px;margin-top:20px}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px 18px 18px;display:grid;gap:8px;align-content:start}
+.card .fig{font-family:var(--display);font-stretch:75%;font-weight:800;font-size:2.6rem;line-height:1;font-variant-numeric:tabular-nums}
+.card.p .fig{color:var(--atom)} .card.h .fig{color:var(--si)} .card.c .fig{color:var(--coal)}
+.card h3{font-family:var(--body);font-stretch:100%;font-size:15px;font-weight:600;line-height:1.3}
+.card p{margin:0;font-size:14px;color:var(--muted)}
+.sources ol{margin:14px 0 0;padding-left:22px;columns:2 340px;column-gap:32px;font-size:13px}
+.sources li{break-inside:avoid;margin-bottom:5px}
+.foot{margin-top:24px;font-size:13px;color:var(--muted);max-width:76ch}
+
+.labs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;margin-top:20px}
+.lab{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:18px 20px 20px;display:grid;gap:14px;align-content:start}
+.lab .hd{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.lab h3{font-size:2rem;font-weight:800}
+.lab .tag{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.lab .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.lab .stats div{border-top:2px solid var(--dc);padding-top:6px;display:grid;gap:2px}
+.lab .stats b{font-family:var(--display);font-stretch:75%;font-size:1.6rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.lab .stats span{font-size:12.5px;color:var(--muted)}
+.lab h4{margin:0 0 6px;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.lab ul{margin:0;padding-left:18px;display:grid;gap:5px;font-size:14px}
+.lab .own{display:grid;gap:6px}
+.lab .own button{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:baseline;text-align:left;background:var(--bg);border:1px solid var(--rule);border-radius:6px;padding:7px 10px;cursor:pointer;font-size:13.5px}
+.lab .own button:hover{border-color:var(--ink)}
+.lab .own button b{font-family:var(--mono);font-size:12.5px}
+.lab .own button span.d{color:var(--muted);font-size:13px}
+.lab p.disc{margin:0;font-size:12.5px;color:var(--muted)}
+
+.today{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;margin-top:16px}
+.tcol{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:12px 14px 14px;display:grid;gap:8px;align-content:start}
+.tcol h4{margin:0;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.tcol ol{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.tcol li button{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:10px;width:100%;font-size:14px;padding:3px 0;border-bottom:1px solid var(--rule)}
+.tcol li button:focus-visible{outline:2px solid var(--atom)}
+.tcol li .tkc{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.tcol li .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
+.tcol li .v.p{color:var(--pos)} .tcol li .v.n{color:var(--neg)}
+.tcol .empty{font-size:13px;color:var(--muted);margin:0}
+.authbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:13.5px;margin-left:auto}
+.authbar form{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.authbar label{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.authbar input{font:inherit;padding:5px 9px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);min-width:0;width:220px;max-width:100%}
+.authbar button,.wl button{font:inherit;font-size:13.5px;border:1px solid var(--ink);background:transparent;border-radius:999px;padding:4px 12px;cursor:pointer}
+.authmsg{font-size:12.5px;color:var(--muted)}
+.star{color:var(--si);font-size:12px;line-height:1}
+.wl{border:1px solid var(--rule);border-radius:8px;padding:12px;display:grid;gap:8px;background:var(--bg)}
+.wl h4{margin:0}
+.wl label{font-size:12.5px;color:var(--muted)}
+.wl input,.wl textarea{font:inherit;font-size:14px;padding:6px 9px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);width:100%}
+.wl .wltog[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.wlrow{display:flex;gap:10px;align-items:center}
+
+@media (max-width:1079px){
+  .stage{grid-template-columns:minmax(0,1fr)}
+  .wrap{padding-bottom:44vh}
+  .inspector{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:30;border-radius:14px 14px 0 0;border-bottom:0;
+    max-height:42vh;padding:12px 18px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+  .inspector.min{max-height:none;overflow:hidden}
+  .inspector.min .body{display:none}
+  .sheetbar{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .sheetbar button{border:1px solid var(--rule);background:var(--bg);border-radius:999px;padding:3px 11px;font-size:12.5px;cursor:pointer}
+  .inspector h2{font-size:1.5rem}
+}
+@media (max-width:760px){
+  .map{grid-template-columns:minmax(0,1fr)}
+  .wrap{padding-inline:16px}
+}
+@media (prefers-reduced-motion:reduce){.chip{transition:none}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="kicker">AI data centers · supply chains &amp; stocks · prices as of Oct 2–6, 2026 closes</div>
+    <h1>Mine to Model</h1>
+    <p class="lede">Two chains feed an AI data center: <b>the power</b> that runs it and <b>the hardware</b> inside it. Builders and landlords, now including SpaceX, turn both into rented capacity for Microsoft, Amazon, Google, Meta, OpenAI and Anthropic. Tap a company to light up its chain and see its stock: price, where analysts think it goes in 12 months, and what could help or hurt it.</p>
+    <div class="fuelpath" aria-label="How uranium becomes data center power">
+      <span>U₃O₈ yellowcake</span><i>→</i><span>UF₆ gas</span><i>→</i><span>enriched UF₆ (SWU)</span><i>→</i><span>fuel assemblies / TRISO</span><i>→</i><span>reactor MW</span><i>→</i><span>20-year PPA</span><i>→</i><span>data center</span>
+    </div>
+    <p class="notice" id="notice">Research, not advice. The green pills show the gap between the Oct 2 price and the average Wall Street 12-month price target. Analyst targets are often too optimistic and move with the stock, so treat them as one input, not a forecast.</p>
+  </header>
+
+  <div class="setup" aria-label="Market setup">
+    <div><b class="num">$96/lb</b><span>Long-term uranium price, a 19-year high on Oct 3, while nuclear stocks sold off.</span></div>
+    <div><b class="num">−50%</b><span>Oklo's fall this year. The VanEck nuclear ETF is down about 35% from its January peak.</span></div>
+    <div><b class="num">−56%</b><span>Oracle from its peak, on worries about debt and its $300B OpenAI contract. CoreWeave is −48% from its high.</span></div>
+    <div><b class="num">0 cuts</b><span>No big cloud company lowered 2026 capex after Q2. Amazon guides about $220B, Alphabet $195–205B.</span></div>
+    <div><b class="num">$518B</b><span>Cloud and compute Anthropic has committed to over the next decade, per its IPO filing as reported Sept 28.</span></div>
+    <div><b class="num">+27%</b><span>SpaceX (SPCX) versus its $135 June IPO price; it now rents AI compute to Anthropic and Google.</span></div>
+  </div>
+
+  <section class="block" id="today" hidden style="margin-top:32px">
+    <h2>Since yesterday</h2>
+    <p class="sub" id="todaySub"></p>
+    <div class="today">
+      <div class="tcol"><h4>Biggest gains</h4><ol id="tUp"></ol></div>
+      <div class="tcol"><h4>Biggest drops</h4><ol id="tDown"></ol></div>
+      <div class="tcol"><h4>Analyst changes</h4><ol id="tTgt"></ol></div>
+      <div class="tcol" id="tWLcol" hidden><h4>Your watchlist</h4><ol id="tWL"></ol></div>
+    </div>
+  </section>
+
+  <div class="controls">
+    <div class="pick" id="pick"><span class="lbl">Trace a buyer</span></div>
+    <div class="legend">
+      <span><svg width="30" height="10" aria-hidden="true"><line x1="1" y1="5" x2="29" y2="5" stroke="currentColor" stroke-width="2"/></svg>signed deal or supply</span>
+      <span><svg width="30" height="10" aria-hidden="true"><line x1="1" y1="5" x2="29" y2="5" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"/></svg>planned, MOU, or ownership</span>
+      <span><i class="fut" aria-hidden="true"></i>reactor not running yet</span>
+      <span><span class="up hi">+50%</span><span class="up mid">+20%</span><span class="up lo">+5%</span><span class="up neg">−3%</span>analyst upside</span>
+    </div>
+    <div class="authbar" id="authbar" hidden></div>
+  </div>
+
+  <div class="stage">
+    <div class="map" id="map">
+      <svg class="links" id="links" aria-hidden="true"></svg>
+    </div>
+    <aside class="inspector" id="insp" aria-live="polite"></aside>
+  </div>
+
+  <section class="block" id="labs">
+    <h2>Anthropic and SpaceX</h2>
+    <p class="sub">Two of the biggest new links in the chain. Anthropic is a huge buyer of compute from almost every supplier on the map. SpaceX merged with xAI in February, listed in June, and now sells AI compute from its Memphis Colossus data centers as well as running Starlink and launches.</p>
+    <div class="labs">
+      <article class="lab">
+        <div class="hd"><h3>Anthropic</h3><span class="tag">private · IPO filed confidentially</span></div>
+        <div class="stats">
+          <div><b>$965B</b><span>valuation in its $65B Series H (May 28, 2026)</span></div>
+          <div><b>$47B</b><span>annualized revenue run-rate reported in May</span></div>
+          <div><b>$518B</b><span>future cloud and infrastructure commitments</span></div>
+        </div>
+        <div><h4>Who supplies its compute</h4><ul>
+          <li><b>Amazon:</b> up to $100B over 10 years for about 5 GW of Trainium chips, plus a $5B investment (April 2026).</li>
+          <li><b>Google:</b> 5 GW of TPU capacity over five years and up to $40B of investment; Broadcom adds 3.5 GW of TPUs from 2027.</li>
+          <li><b>Microsoft &amp; Nvidia:</b> $30B Azure commitment and up to 1 GW of Nvidia systems; Microsoft invested up to $5B, Nvidia up to $10B (Nov 2025).</li>
+          <li><b>SpaceX:</b> $1.25B a month through May 2029 for Nvidia GB200s in Colossus 1 and 2, cancellable on 90 days' notice.</li>
+          <li><b>Neoclouds:</b> Fluidstack ($50B, its own sites in Texas and New York), Nscale ($45B, West Virginia), Lambda ($35B, Texas).</li>
+        </ul></div>
+        <div><h4>How to own it today</h4><div class="own">
+          <button type="button" data-go="google"><b>GOOGL</b><span>Owns about 14% (capped at 15%)</span><span class="d">indirect</span></button>
+          <button type="button" data-go="amazon"><b>AMZN</b><span>Booked a $53.4B gain on its stake in Q2</span><span class="d">indirect</span></button>
+          <button type="button" data-go="microsoft"><b>MSFT · NVDA</b><span>Smaller stakes from the Nov 2025 deal</span><span class="d">indirect</span></button>
+        </div></div>
+        <div><h4>What to watch</h4><ul>
+          <li>The IPO: reports say it may seek over $2T and wait until after the November midterms.</li>
+          <li>Its filing shows about a quarter of revenue came from two customers without long-term contracts.</li>
+          <li>Its spending fills the order books of Amazon, Google, SpaceX, Nvidia, Broadcom and the neoclouds, so its growth matters to all of them.</li>
+        </ul></div>
+        <p class="disc">This page was researched with Claude, which Anthropic makes. Everything here comes from the cited reporting, not inside knowledge.</p>
+      </article>
+      <article class="lab">
+        <div class="hd"><h3>SpaceX</h3><span class="tag">SPCX · Nasdaq since June 12, 2026</span></div>
+        <div class="stats">
+          <div><b>$171</b><span>Oct 5 price, versus $135 at the IPO</span></div>
+          <div><b>$7.8B</b><span>Q2 revenue, +92%, with about $2B of the growth from AI compute</span></div>
+          <div><b>$28B</b><span>capex in the first half of 2026, up from $7B</span></div>
+        </div>
+        <div><h4>Its place in the chain</h4><ul>
+          <li><b>Sells compute:</b> Anthropic ($1.25B a month, about 325,000 GPUs) and Google ($920M a month, about 110,000 GPUs); talks with the Pentagon.</li>
+          <li><b>Buys chips:</b> Nvidia GPUs, in Dell and Supermicro servers.</li>
+          <li><b>Makes its own power:</b> Caterpillar's Solar Turbines gas turbines, 168 Tesla Megapacks, plus TVA grid power. Its Mississippi turbines face permit lawsuits.</li>
+          <li><b>Next:</b> a first orbital data center with Nvidia Vera Rubin, targeted for Q4 2027; Starship reached orbit and deployed Starlink V3 satellites in late September.</li>
+        </ul></div>
+        <div><h4>How to own it</h4><div class="own">
+          <button type="button" data-go="spacex"><b>SPCX</b><span>Direct; analysts' average target $226 (+32%)</span><span class="d">direct</span></button>
+          <button type="button" data-go="google"><b>GOOGL</b><span>Owns about 4.9%, worth about $94B at June 30</span><span class="d">indirect</span></button>
+          <button type="button" data-go="spacex"><b>ECHO</b><span>EchoStar holds SpaceX shares from selling it spectrum</span><span class="d">indirect</span></button>
+        </div></div>
+        <div><h4>What to watch</h4><ul>
+          <li>It trades at about 89 times analysts' 2027 earnings estimate, so it is priced for a lot of growth.</li>
+          <li>Musk holds about 42% of the shares and 82–85% of the votes; insider lock-ups end around June 2027.</li>
+          <li>$6.7B more cloud revenue is under contract, ramping from October; Q3 results will show it.</li>
+        </ul></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="block" id="upside">
+    <h2>Where the upside is</h2>
+    <p class="sub">Every public company on the map, ranked by the gap to its average analyst target. The bar shows the lowest to highest target with the average marked; the dot is today's price. A wide bar means analysts disagree a lot. Tap a row to see it on the map.</p>
+    <div class="filters" id="filters"></div>
+    <div class="tablewrap">
+      <table id="tbl">
+        <thead><tr>
+          <th><button type="button" data-sort="name">Company</button></th>
+          <th>Link in the chain</th>
+          <th class="r"><button type="button" data-sort="px">Price</button></th>
+          <th class="r">Avg target</th>
+          <th class="r"><button type="button" data-sort="up" aria-sort="descending">Upside</button></th>
+          <th>Target range vs price</th>
+          <th class="r"><button type="button" data-sort="pe">Fwd P/E</button></th>
+          <th>Rating</th>
+          <th>Risk</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="foot">Forward P/E is price divided by analysts' earnings-per-share estimate for the next fiscal year; "n/m" means the company loses money or the figure isn't comparable (REITs, ADR currency mismatches). Risk is my read of how wide the outcomes are, based on profits, debt, and how far away the revenue is.</p>
+  </section>
+
+  <section class="block">
+    <h2>Six ways to play the chain</h2>
+    <p class="sub">The same AI build-out pays different companies at different times. Power producers get paid now under long contracts; reactor developers get paid in the 2030s if they get built. Matching the bet to your timeline matters as much as picking the company.</p>
+    <div class="themes" id="themes"></div>
+  </section>
+
+  <section class="block">
+    <h2>Where the chain is tight</h2>
+    <p class="sub">The bottlenecks sit in the middle of each chain, where only a handful of plants in the world do the work. Bottlenecks are where pricing power, and often the upside, comes from.</p>
+    <div class="cards">
+      <div class="card p"><div class="fig">93%</div><h3>of US reactor uranium is mined abroad</h3><p>Deliveries to US plants in 2025 came from Canada (32%), Kazakhstan (28%) and Australia (15%). US mines supplied 7%.</p></div>
+      <div class="card p"><div class="fig">1 plant</div><h3>does commercial enrichment in the US</h3><p>Urenco's site in Eunice, New Mexico. Russian enrichers still supplied about 26% of US enrichment in 2025; import waivers run out by the start of 2028.</p></div>
+      <div class="card p"><div class="fig">2029+</div><h3>before new reactors get commercial HALEU</h3><p>Most SMR designs need uranium enriched to nearly 20%. Centrus, General Matter and Orano plants come online between 2029 and the early 2030s.</p></div>
+      <div class="card p"><div class="fig">9.8 GW</div><h3>of nuclear signed by tech, mostly not yet flowing</h3><p>About 13 deals by mid-2026. The first restart power arrives with Crane in 2027 and Duane Arnold by early 2029.</p></div>
+      <div class="card h"><div class="fig">&gt;50%</div><h3>of TSMC's AI chip packaging goes to Nvidia</h3><p>Every advanced AI chip is built by TSMC, and HBM memory from SK hynix and Micron is sold out for 2026.</p></div>
+      <div class="card c"><div class="fig">+13%</div><h3>US coal power generation in 2025</h3><p>Partly driven by data centers. Coal does not fuel nuclear plants; it reaches data centers through the grid.</p></div>
+    </div>
+  </section>
+
+  <section class="block sources">
+    <h2>Sources</h2>
+    <ol id="srclist"></ol>
+    <p class="foot">Prices and analyst targets come from StockAnalysis.com forecast pages (S&amp;P Global consensus), Oct 2, 2026 close unless a row says otherwise. Megawatt figures are contracted or announced capacity, not power being delivered today. This page is research for your own decisions and is not financial advice.</p>
+  </section>
+</div>
+
+<script>
+/* Web app settings.
+   Level 3 (watchlist): paste your Supabase Project URL and anon public key between the quotes.
+   The anon key is safe to put here; Row Level Security keeps each person's watchlist private. */
+window.MTM_CONFIG = {
+  app: true,
+  supabaseUrl: "",
+  supabaseAnonKey: ""
+};
+</script>
+<script>
+const SRC = {
+  sa:["StockAnalysis.com: price and analyst forecast pages","https://stockanalysis.com/"],
+  fcx:["Motley Fool: Freeport-McMoRan and record copper prices (Sept 2026)","https://www.fool.com/investing/2026/09/22/freeport-mcmorans-low-cost-secret-to-take-advantag/"],
+  mp:["InvestorPlace: China's rare earth squeeze and MP Materials (Sept 2026)","https://investorplace.com/hypergrowthinvesting/2026/09/china-targeted-mp-materials-for-a-reason/"],
+  asmlq2:["CNBC: ASML hikes sales forecast on AI chip demand (July 15, 2026)","https://www.cnbc.com/2026/07/15/asml-2q-earnings-ai-chips-orders.html"],
+  asmlhna:["CNBC: TSMC and Samsung to use ASML High-NA EUV (Sept 8, 2026)","https://www.cnbc.com/2026/09/08/tsmc-samsung-asml-high-na-euv-machine-ai-chips.html"],
+  mistral:["TechCrunch: Mistral raises €3B (Sept 8, 2026)","https://techcrunch.com/2026/09/08/mistral-raises-e3b-as-sovereign-ai-becomes-big-business/"],
+  anet:["The Soji Brief: Arista customer concentration (2025 10-K)","https://thesojibrief.substack.com/p/the-soji-brief-customer-concentration"],
+  anetq2:["True Value Research: Arista's first $3B quarter (Q2 2026)","https://truevalueresearch.com/articles/arista-networks-anet-q2-2026-earnings.html"],
+  crdo:["24/7 Wall St.: Credo's key number (Oct 5, 2026)","https://247wallst.com/investing/2026/10/05/credo-has-one-number-that-could-change-the-stocks-long-term-story/"],
+  nvopt:["SiliconANGLE: Nvidia invests $4B in Lumentum and Coherent (Mar 2026)","https://siliconangle.com/2026/03/02/nvidia-invests-4b-co-packaged-optics-suppliers-lumentum-coherent/"],
+  glwmeta:["CNBC: Meta's $6B fiber deal with Corning (Jan 27, 2026)","https://www.cnbc.com/2026/01/27/apple-supplier-corning-wins-6-billion-from-meta-for-ai-optical-fiber.html"],
+  glwamzn:["Optics & Photonics News: Corning and Amazon deal (June 2026)","https://www.optica-opn.org/home/industry/2026/june/corning_and_amazon_strike_multibillion-dollar_deal/"],
+  alab:["Futurum: Astera Labs Q2 2026","https://futurumgroup.com/insights/astera-labs-q2-fy-2026-earnings-pull-scorpio-switch-leadership-forward/"],
+  eqt:["Zacks via TradingView: EQT's Homer City gas supply deal","https://www.tradingview.com/news/zacks:36c14da33094b:0-eqt-secures-major-gas-supply-deal-for-homer-city-energy-campus/"],
+  wmb:["DCD: Blackstone invests $5.34B in Williams' data center power projects (July 2026)","https://www.datacenterdynamics.com/en/news/blackstone-invests-534bn-in-williams-behind-the-meter-natural-gas-power-projects-for-the-data-center-sector/"],
+  dom:["MarketScale: Dominion's 53.8 GW data center backlog","https://www.marketscale.com/industries/energy/dominions-538-gw-data-center-backlog-and-a-668b-merger-make-it-the-utility-to-watch-in-2026"],
+  so:["Data Center Frontier: Southern's 17 GW pipeline","https://www.datacenterfrontier.com/energy/article/55398810/southerns-17-gw-pipeline-puts-ai-power-demand-into-utility-math"],
+  etr:["Fortune: Meta orders 10 gas plants for Hyperion (Mar 27, 2026)","https://fortune.com/2026/03/27/meta-hyperion-10-gas-power-plants-louisiana-entergy/"],
+  aep:["DCD: AEP contracted capacity reaches 63 GW (May 2026)","https://www.datacenterdynamics.com/en/news/aep-sees/"],
+  aapl:["Introl: the Apple–Google Gemini partnership","https://introl.com/blog/apple-google-gemini-partnership-siri-ai-infrastructure-2026"],
+  baba:["DCD: Alibaba weighs $69B AI data center spend","https://www.datacenterdynamics.com/en/news/alibaba-considers-increasing-ai-data-center-capex-spend-to-69bn-over-three-years-report/"],
+  spcxipo:["CNBC: SpaceX IPO closes at $161 after record debut (June 12, 2026)","https://www.cnbc.com/2026/06/12/spacex-ipo-spcx-live-updates.html"],
+  spcxwiki:["Wikipedia: initial public offering of SpaceX","https://en.wikipedia.org/wiki/Initial_public_offering_of_SpaceX"],
+  spcxq2:["TechCrunch: SpaceX doubles revenue on Anthropic and Google compute deals (Aug 4, 2026)","https://techcrunch.com/2026/08/04/spacex-doubles-revenues-on-anthropic-and-google-compute-deals-starlink-growth/"],
+  spcxfort:["Fortune: SpaceX's AI compute renting business (July 2026)","https://fortune.com/2026/07/19/spacex-ai-compute-renting-business-google-anthropic-pentagon-deals-revenue-valuation-elon-musk-colossus-data-centers/"],
+  spcxorb:["24/7 Wall St.: SpaceX and Nvidia orbital data center pulled into 2027","https://247wallst.com/investing/2026/08/25/spacex-rises-3-as-musk-pulls-the-nvidia-orbital-data-center-into-2027-jpmorgan-sees-75-upside/"],
+  spcxoct:["TipRanks: why SpaceX stock surged (Oct 2, 2026)","https://www.tipranks.com/news/why-spacex-stock-spcx-is-surging-today-october-2-2026"],
+  colossus:["Wikipedia: Colossus supercomputer","https://en.wikipedia.org/wiki/Colossus_(supercomputer)"],
+  col2:["Global Energy Monitor: Colossus 2 power station","https://www.gem.wiki/Colossus_2_power_station"],
+  googspcx:["Motley Fool: Alphabet's $94B SpaceX stake","https://www.fool.com/investing/2026/07/23/alphabet-just-revealed-a-94-billion-stake-in-space/"],
+  echo:["Via Satellite: EchoStar swaps SATS ticker for ECHO","https://www.satellitetoday.com/finance/2026/06/22/echostar-swaps-sats-ticker-for-echo-to-emphasize-business-shift/"],
+  anthh:["TechCrunch: Anthropic raises $65B near $1T valuation (May 28, 2026)","https://techcrunch.com/2026/05/28/anthropic-raises-65-billion-nears-1t-valuation-ahead-of-ipo/"],
+  anths1:["Yahoo Finance / Reuters: Anthropic's IPO prospectus (Sept 28, 2026)","https://finance.yahoo.com/technology/ai/articles/exclusive-anthropics-ipo-prospectus-shows-231722972.html"],
+  anthspcx:["Axios: Anthropic is paying SpaceX $15B a year (May 20, 2026)","https://www.axios.com/2026/05/20/anthropic-spacex-compute"],
+  anthgoog:["TechCrunch: Google to invest up to $40B in Anthropic (Apr 24, 2026)","https://techcrunch.com/2026/04/24/google-to-invest-up-to-40b-in-anthropic-in-cash-and-compute/"],
+  anthdeals:["ValueAdd VC: Anthropic's 2026 compute deals","https://valueaddvc.com/pulse/ai-compute-arms-race-275-billion-cloud-deals-2026"],
+  anthmsft:["DCD: Anthropic $30B Azure deal; Microsoft and Nvidia invest (Nov 2025)","https://www.datacenterdynamics.com/en/news/anthropic-to-purchase-30bn-in-microsoft-azure-credits-nvidia-and-microsoft-to-invest-in-ai-company/"],
+  anthfs:["Introl: Anthropic's $50B data center plan with Fluidstack","https://introl.com/blog/anthropic-50-billion-data-center-plan-december-2025"],
+  anthns:["DCD: Anthropic $45B compute deal with Nscale","https://www.datacenterdynamics.com/en/news/anthropic-signs-45bn-compute-capacity-agreement-with-nscale-report/"],
+  anthlam:["Investing.com / WSJ: Anthropic $35B deal with Lambda","https://www.investing.com/news/stock-market-news/anthropic-signs-35-billion-cloud-deal-with-nvidiabacked-lambda-wsj-reports-93CH-4883381"],
+  anthstake:["Motley Fool: stocks that cash in when Anthropic goes public","https://www.fool.com/investing/2026/09/15/stocks-cash-in-anthropic-goes-public-amzn-goog/"],
+  cat:["Manufacturing Dive: Caterpillar Q2 2026, data center generators","https://www.manufacturingdive.com/news/caterpillar-sales-surpass-20b-growing-data-center-demand-q2-2026/827068/"],
+  u19:["24/7 Wall St.: uranium at a 19-year high while nuclear stocks fall (Oct 3, 2026)","https://247wallst.com/investing/2026/10/03/uranium-prices-just-broke-a-19-year-record-but-nuclear-stocks-are-collapsing-anyway"],
+  nucdip:["Discovery Alert: nuclear stocks down 47% (Sept 2026)","https://discoveryalert.com/analysis/nuclear-equities-buying-opportunity-september-2026/"],
+  piper:["24/7 Wall St.: Piper Sandler splits the nuclear sector (Sept 2026)","https://247wallst.com/investing/2026/09/10/nuclear-stocks-slide-as-piper-sandler-splits-the-sector-oklo-nuscale-power-and-x-energy-all-drop-5/"],
+  oklo:["Investing.com: Oklo Q2 2026, first criticality","https://www.investing.com/news/company-news/oklo-q2-2026-slides-first-criticality-achieved-3b-liquidity-93CH-4846923"],
+  orcl:["Motley Fool: Oracle's debt load (Sept 2026)","https://www.fool.com/investing/2026/09/19/will-oracle-debt-load-derail-its-ai-cloud-ambition/"],
+  capex:["SupercycleHQ: hyperscaler capex roundup (Sept 2026)","https://supercyclehq.com/blog/reports/hyperscaler-capex-september-2026"],
+  crwv:["Market Periodical: CoreWeave below $80 (Sept 2026)","https://themarketperiodical.com/2026/09/18/coreweave-stock-falls-below-80-as-debt-and-ai-risks-build/"],
+  neo:["Techi: neocloud stocks in 2026","https://www.techi.com/neocloud-stocks/"],
+  nbis:["Motley Fool: Nebius deals with Microsoft and Meta","https://www.fool.com/investing/2026/04/02/nebius-just-signed-46-billion-in-ai-cloud-deals-wi/"],
+  iren:["Yahoo Finance: IREN one year into the Microsoft deal","https://finance.yahoo.com/technology/ai/articles/1-microsoft-deal-iren-delivering-142734921.html"],
+  apld:["MLQ: Applied Digital $7.5B Polaris Forge 3 lease","https://mlq.ai/news/v2/applied-digital-signs-75b-lease-at-polaris-forge-3-pushes-contracted-capacity-past-12gw/"],
+  reits:["24/7 Wall St.: data center REITs and the AI build-out","https://247wallst.com/investing/2026/09/04/3-data-center-reits-collecting-rent-from-the-ai-buildout/"],
+  junesell:["Gotrade: AI stocks slide, June 5, 2026","https://www.heygotrade.com/en/news/ai-stocks-selloff-broadcom-nvidia-bubble-fears/"],
+  eia:["EIA: US uranium production and purchases, 2025","https://www.eia.gov/todayinenergy/detail.php?id=68044"],
+  ie:["Interesting Engineering: 93% of US reactor uranium foreign-sourced (EIA data)","https://interestingengineering.com/energy/us-nuclear-reactors-uranium-foreign-sourced"],
+  wnaus:["World Nuclear Association: US nuclear fuel cycle (Oct 2026)","https://world-nuclear.org/information-library/country-profiles/countries-t-z/usa-nuclear-fuel-cycle"],
+  wnn:["World Nuclear News: Cameco and Kazatomprom 2025 production","https://world-nuclear-news.org/articles/Cameco-Kazatomprom-release-2025-figures"],
+  cam40f:["Cameco 2025 annual report (40-F)","https://www.sec.gov/Archives/edgar/data/1009001/000119312526116229/d34605dex991.htm"],
+  camq2:["Cameco Q2 2026 report","https://www.sec.gov/Archives/edgar/data/0001009001/000119312526326768/d125942dex992.htm"],
+  camwh:["Cameco 2025 MD&A: Westinghouse ownership","https://www.sec.gov/Archives/edgar/data/1009001/000119312526139308/d711806dex991.pdf"],
+  bf80:["Brookfield/Cameco/US Government $80B Westinghouse partnership","https://westinghousenuclear.com/strategic-partnership/press-releases/brookfield/"],
+  doe175:["Cameco: DOE $17.5B AP1000 supply-chain loan (June 2026)","https://www.sec.gov/Archives/edgar/data/0001009001/000119312526279269/d83887dex991.htm"],
+  urenco:["POWER: Urenco USA expansion","https://www.powermag.com/americas-only-commercial-uranium-enricher-is-privately-building-a-new-plant-amid-a-widening-nuclear-fuel-supply-gap/"],
+  nbtp:["Neutron Bytes: TerraPower and Meta","https://neutronbytes.com/2026/01/09/terrapower-in-mega-deal-with-meta-for-eight-natrium-345-mw-advanced-nuclear-plants/"],
+  tpfaq:["TerraPower: Natrium FAQ","https://www.terrapower.com/faq/"],
+  kairos:["ANS: Kairos Power HALEU for Hermes","https://www.ans.org/news/2026-01-22/article-7690/kairos-power-finalizes-contract-on-haleu-for-hermes/"],
+  cnbcmeta:["CNBC: Meta nuclear deals with Vistra, TerraPower, Oklo","https://www.cnbc.com/2026/01/09/meta-signs-nuclear-energy-deals-to-power-prometheus-ai-supercluster.html"],
+  vistra:["ANS: the Meta–Vistra deal","https://www.ans.org/news/2026-01-12/article-7668/the-metavistra-deal-a-closer-look/"],
+  axios:["Axios: Meta deals and the Constellation Clinton PPA","https://www.axios.com/2026/01/09/meta-nuclear-deal-vistra-terrapower-oklo"],
+  calvert:["Zacks via TradingView: Constellation–Amazon Calvert Cliffs PPA","https://tradingview.com/news/zacks:a21bc1d91094b:0-can-ceg-s-amazon-ppa-strengthen-its-long-term-growth-prospects"],
+  calpine:["Constellation 2026 proxy: Calpine acquisition","https://www.stocktitan.net/sec-filings/CEG/def-14a-constellation-energy-corp-definitive-proxy-statement-8976d5a2bff1.html"],
+  crane:["AlphaStreet: Crane restart timeline","https://news.alphastreet.com/constellation-energy-ceg-nuclear-restart-economics-and-the-data-center-ppa-opportunity/amp/"],
+  ppa:["Presenc: hyperscaler nuclear PPA tracker","https://presenc.ai/research/hyperscaler-nuclear-ppa-tracker-2026"],
+  smr:["Core Insights: SMRs for data centers, 2026","https://www.coradvisors.net/2026/08/small-modular-reactor-nuclear-power-data-centers-2026.html"],
+  nee:["NextEra: DOE loan for Duane Arnold (Sept 2026)","https://www.investor.nexteraenergy.com/news-and-events/news-releases/2026/09-08-2026-123110497"],
+  dcd:["DCD: Google and NextEra Duane Arnold PPA","https://www.datacenterdynamics.com/en/news/google-signs-power-deal-with-nextenergy-to-restart-iowas-615mw-duane-arnold-nuclear-plant-for-ai-data-centers/"],
+  sched:["Options Trading Report: tech nuclear schedule (Oct 2026)","https://www.optionstradingreport.com/2026/10/techs-nuclear-power-is-years-away-here-is-the-schedule/"],
+  skh:["SK hynix registration statement (HBM share)","https://www.sec.gov/Archives/edgar/data/0002120882/000119312526120672/filename1.htm"],
+  hbm:["Introl: the AI memory supercycle","https://introl.com/blog/ai-memory-supercycle-hbm-2026"],
+  mu:["Motley Fool: Micron and SK hynix HBM (June 2026)","https://www.fool.com/investing/2026/06/25/ai-data-centers-will-consume-70-of-all-memory-chip/"],
+  tsmc:["Forbes: TSMC and custom AI chips","https://www.forbes.com/sites/jonmarkman/2026/04/23/why-googles-custom-ai-chip-strategy-cant-dethrone-nvidia/"],
+  asic:["INDmoney: Broadcom and Marvell in custom AI chips","https://www.indmoney.com/blog/us-stocks/ai-chip-war-broadcom-avgo-marvell-mrvl-asic"],
+  mrvl:["CNBC: Marvell–Google custom chip deal (Aug 2026)","https://www.cnbc.com/2026/08/19/marvell-google-ai-chips.html"],
+  chain:["Silicon Analysts: AI data center value chain","https://siliconanalysts.com/research/ai-data-center-value-chain"],
+  fox:["Tech Insider: Foxconn and AI server rack share","https://tech-insider.org/foxconn-q1-2026-ai-server-revenue-66-billion/"],
+  oem:["GPUsmith: who builds Nvidia AI servers","https://gpusmith.com/articles/en/nvidia-ai-server-oem-comparison"],
+  gev:["GE Vernova Q2 2026 results","https://www.sec.gov/Archives/edgar/data/0001996810/000199681026000147/gevpressrelease2q26.htm"],
+  gevlead:["Power Engineering: GE Vernova turbine slots","https://www.power-eng.com/gas/turbines/data-centers-drive-record-surge-in-ge-vernova-power-equipment-orders-as-turbine-slots-tighten-through-2030/"],
+  grid:["Motley Fool: GE Vernova, Eaton, Vertiv","https://www.fool.com/investing/2026/08/20/morgan-stanley-says-ai-data-centers-face-a-38-giga/"],
+  coal:["Spotlight PA / Grist: data centers and coal","https://www.spotlightpa.org/news/2026/08/data-center-coal-power-emissions-climate-change-study-environment/"],
+  crs:["Congressional Research Service: US coal industry","https://www.congress.gov/crs-product/R48587"],
+  core:["Core Natural Resources Q4 2025 results","https://www.sec.gov/Archives/edgar/data/1710366/000171036626000005/cnrq42025er-exhibit991.htm"]
+};
+
+const LANES = [
+ {id:"power", cls:"power", name:"Power: fuel to electrons",
+  note:"Nuclear needs a long fuel chain and most new reactors are years away. Gas, the grid and coal deliver most data center power today.",
+  bands:[
+   {id:"P1",label:"Mine",plain:"Dig up uranium and mill it into yellowcake (U₃O₈)."},
+   {id:"P2",label:"Convert",plain:"Turn yellowcake into uranium hexafluoride gas (UF₆)."},
+   {id:"P3",label:"Enrich",plain:"Raise the U-235 share: about 5% for today's reactors, up to 19.75% (HALEU) for most new designs."},
+   {id:"P4",label:"Make fuel",plain:"Press uranium into pellets, rods and assemblies, or TRISO pebbles for new reactors."},
+   {id:"P5",label:"Generate",plain:"Run reactors and sell the power to tech companies on 20–25 year contracts (PPAs)."},
+   {id:"P6",label:"Gas & pipelines",plain:"Produce natural gas and pipe it to power plants, including new ones built right beside data centers."},
+   {id:"P7",label:"Utilities & grid",plain:"Regulated utilities that connect data centers and build the plants and lines to serve them."},
+   {id:"P8",label:"Coal",plain:"Not a nuclear fuel. Coal plants feed the same grid many data centers draw from.",coal:true}
+ ]},
+ {id:"hw", cls:"hw", name:"Hardware: silicon to server hall",
+  note:"The big clouds buy racks straight from Taiwanese assemblers and design more of their own chips every year.",
+  bands:[
+   {id:"H0",label:"Metals",plain:"Copper for every cable, busbar and transformer; rare earth magnets for motors, fans and drives."},
+   {id:"H1",label:"Fab & memory",plain:"Make the chip-printing machines, manufacture the chips, and the stacked HBM memory beside each one."},
+   {id:"H2",label:"Design chips",plain:"Design GPUs, or co-design the clouds' own AI chips (TPU, Trainium, Maia)."},
+   {id:"H3",label:"Build racks",plain:"Assemble chips, boards, cooling and cabling into server racks."},
+   {id:"HN",label:"Network & optics",plain:"Switches, cables, lasers and fiber that let thousands of GPUs work as one."},
+   {id:"H4",label:"Power & cool",plain:"Gas turbines, transformers, switchgear, backup power and liquid cooling for the building."}
+ ]}
+];
+
+const N = {
+ kazatomprom:{b:"P1",n:"Kazatomprom",t:"LSE: KAP · Kazakhstan",role:"The world's largest uranium miner (state-owned).",
+  f:["Produced about 67 million lb of uranium in 2025 across its mines (100% basis).","Kazakhstan supplied 28% of the uranium delivered to US reactors in 2025.","Owns 60% of the Inkai mine; Cameco owns the other 40%."],s:["wnn","eia","cam40f"]},
+ cameco:{b:"P1",n:"Cameco",t:"CCJ · Canada",role:"The largest Western uranium miner, with stakes up and down the chain.",
+  f:["McArthur River in Saskatchewan is the world's largest high-grade uranium mine.","Produced 21.0 million lb (its share) in 2025.","Canada was the top source of US reactor uranium in 2025 at 32%.","Owns 49% of Westinghouse and 49% of Global Laser Enrichment, and runs the Port Hope conversion plant."],s:["wnn","cam40f","eia","camwh"]},
+ bhp:{b:"P1",n:"BHP Olympic Dam",t:"BHP · Australia",role:"A giant copper mine that also produces uranium as a by-product.",
+  f:["Australia supplied 15% of the uranium delivered to US reactors in 2025.","Uranium is a small part of BHP, which is mostly copper and iron ore."],s:["eia"]},
+ uec:{b:"P1",n:"Uranium Energy Corp",t:"UEC · Texas, Wyoming",role:"US in-situ uranium miner, also planning a US conversion plant.",
+  f:["US mines produced 534 tonnes of uranium in 2025, more than triple 2024, but about 3% of what US reactors use.","Planning a Wyoming conversion plant of up to 10,000 tU a year.","Exploring supplying Wyoming uranium for TerraPower's Natrium reactors."],s:["wnaus","nbtp"]},
+ converdyn:{b:"P2",n:"ConverDyn · Metropolis",t:"via SOLS · Illinois",role:"The only uranium conversion plant in the US.",
+  f:["The plant is owned by Solstice Advanced Materials (SOLS, spun off from Honeywell in 2025); ConverDyn sells its output.","Licensed for 15,000 tU a year but running at roughly 50–70% of that.","Considering an entirely new conversion plant on the same site (April 2026)."],s:["wnaus"]},
+ porthope:{b:"P2",n:"Cameco · Port Hope",t:"via CCJ · Ontario",role:"Cameco's conversion plant, turning yellowcake into UF₆.",
+  f:["One of a few Western conversion plants; conversion is a known chokepoint ahead of new enrichment capacity."],s:["camwh"]},
+ urenco:{b:"P3",n:"Urenco",t:"private · UK, DE, NL, NM",role:"Runs the only commercial enrichment plant in the US, in Eunice, New Mexico.",
+  f:["Eunice makes 4.3 million SWU a year, about a third of US demand.","Adding 0.7 million SWU by 2027, then 2.1 million more (online 2032–36).","Licensed to enrich up to 10% (LEU+); signed what it called the first multi-year commercial HALEU contract (May 2026)."],s:["wnaus","urenco"]},
+ orano:{b:"P3",n:"Orano",t:"state-owned · France",role:"Mines, converts and enriches; building a large US enrichment plant.",
+  f:["Georges Besse II in France runs 7.5 million SWU a year and is being expanded about 30%.","Project Ike near Oak Ridge, Tennessee: up to 7.4 million SWU a year, ramping from 2031, with a $900M DOE award.","Co-owns the Cigar Lake mine with Cameco (42.6%)."],s:["wnaus","urenco","camq2"]},
+ rosatom:{b:"P3",n:"Rosatom / TENEX",t:"state-owned · Russia",role:"The world's largest enricher, being phased out of US supply.",
+  f:["Russian enrichers supplied about 26% of US enrichment services in 2025.","The US banned Russian enriched uranium imports to 2040; waivers end by Jan 1, 2028."],s:["ie","wnaus"]},
+ centrus:{b:"P3",n:"Centrus Energy",t:"LEU · Piketon, Ohio",role:"The only US maker of HALEU, the higher-grade fuel most new reactors need.",
+  f:["Has produced more than 1,900 kg of HALEU for the DOE.","DOE $900M task order (Jan 2026) to build commercial-scale HALEU; first new capacity by 2029.","Signed HALEU supply plans with Oklo (June 2026) and X-energy (Aug 2026)."],s:["wnaus"]},
+ gm:{b:"P3",n:"General Matter",t:"private · Kentucky",role:"Startup building a HALEU enrichment plant on DOE land.",
+  f:["DOE $900M task order (Jan 2026); targeting operation by 2030.","Signed a long-term HALEU enrichment deal with X-energy (Aug 2026)."],s:["wnaus"]},
+ gle:{b:"P3",n:"Global Laser Enrichment",t:"via CCJ / ASX: SLX",role:"Laser enrichment of old enrichment leftovers; Cameco 49%, Silex 51%.",
+  f:["Planned plant of up to 6 million SWU a year from 2030.","Cameco agreed in Sept 2026 to buy and market all of its output."],s:["wnaus"]},
+ aspi:{b:"P3",n:"ASP Isotopes",t:"ASPI · South Africa",role:"Small company building a HALEU plant, with TerraPower as funder and customer.",
+  f:["Has HALEU supply agreements covering TerraPower's first Natrium cores."],s:["nbtp"]},
+ westinghouse:{b:"P4",n:"Westinghouse",t:"via CCJ (49%) · Pennsylvania",role:"Makes fuel for today's reactors and designs the AP1000 reactor.",
+  f:["Its South Carolina plant makes 1,600 t a year of fuel for both main reactor types.","US government partnership (Oct 2025) for at least $80B of new AP1000 reactors.","DOE conditional loan of up to $17.5B (June 2026) for long-lead parts for up to 10 AP1000s.","Owned 51% by Brookfield and 49% by Cameco."],s:["wnaus","bf80","doe175","camwh"]},
+ framatome:{b:"P4",n:"Framatome",t:"state-owned · Washington",role:"Fuel for today's reactors, now adding advanced-reactor fuels.",
+  f:["The Richland plant makes 1,200 t a year; licensed in 2026 for TRISO fuel up to 10%.","Has an agreement with TerraPower on a HALEU metal-fuel plant."],s:["wnaus","nbtp"]},
+ gnf:{b:"P4",n:"Global Nuclear Fuel",t:"via GEV · North Carolina",role:"Boiling-water-reactor fuel maker owned by GE Vernova, Hitachi and Toshiba.",
+  f:["Makes 1,000 t a year and is licensed for fuel up to 8% enrichment.","Hosts the Natrium Fuel Facility being built for TerraPower."],s:["wnaus","nbtp"]},
+ trisox:{b:"P4",n:"TRISO-X",t:"via XE · Tennessee",role:"X-energy's fuel company, building the first purpose-built US TRISO plant.",
+  f:["The NRC granted it a 40-year licence in Feb 2026.","Its first plant will make about 700,000 fuel pebbles a year."],s:["wnaus"]},
+ bwxt:{b:"P4",n:"BWXT",t:"BWXT · Virginia",role:"Naval reactor fuel, TRISO fuel and government enrichment.",
+  f:["Picked Gillette, Wyoming for a $474M TRISO fuel plant, aiming to operate in 2031.","Exploring commercial TRISO fuel production with Kairos Power.","Building an NNSA enrichment plant in Erwin, Tennessee (around 2035)."],s:["wnaus","kairos"]},
+ constellation:{b:"P5",n:"Constellation",t:"CEG · 55 GW fleet",role:"The largest US power producer and nuclear operator, with deals with three big buyers.",
+  f:["Bought Calpine in Jan 2026, reaching about 55 GW, roughly 10% of US electricity.","Restarting Crane (former Three Mile Island-1) for Microsoft: 835 MW, power targeted late 2027.","Clinton: about 1.1 GW to Meta for 20 years.","Calvert Cliffs: 690 MW to Amazon for 20 years (Sept 30, 2026)."],s:["calpine","crane","axios","calvert"]},
+ talen:{b:"P5",n:"Talen Energy",t:"TLN · Susquehanna, PA",role:"Owns the Susquehanna nuclear plant, next to an Amazon data center campus.",
+  f:["About 1.9 GW sold to Amazon through 2042.","Sold Amazon the data center campus beside the plant in 2024."],s:["smr","sched"]},
+ vistra:{b:"P5",n:"Vistra",t:"VST · Texas",role:"Big nuclear and gas fleet; Meta's largest single power deal.",
+  f:["20-year deals with Meta for 2,609 MW from Beaver Valley, Perry and Davis-Besse.","Deliveries begin late 2026 and reach full volume by 2034."],s:["vistra","cnbcmeta"]},
+ nextera:{b:"P5",n:"NextEra Energy",t:"NEE · Florida",role:"Restarting Iowa's Duane Arnold plant for Google.",
+  f:["615 MW on a 25-year Google contract; restart by early 2029.","The DOE closed a loan of up to $1.9B for the restart (Sept 2026)."],s:["nee","dcd"]},
+ xenergy:{b:"P5",n:"X-energy",t:"XE · Maryland",fut:1,role:"Xe-100 pebble-bed small reactors; Amazon is both investor and buyer.",
+  f:["Went public in April 2026, raising about $1.1B.","Amazon backs Xe-100 units with Energy Northwest in Washington state.","Fuel from Centrus and General Matter, made into pebbles by its own TRISO-X."],s:["piper","smr","wnaus"]},
+ kairos:{b:"P5",n:"Kairos Power",t:"private · California",fut:1,role:"Salt-cooled small reactors; signed the first SMR fleet deal, with Google.",
+  f:["Google deal for 500 MW, with the first units around 2030.","Its Hermes demo reactor is under construction in Oak Ridge."],s:["smr","kairos"]},
+ terrapower:{b:"P5",n:"TerraPower",t:"private · Gates-backed",fut:1,role:"Natrium: a sodium-cooled reactor with molten-salt heat storage.",
+  f:["First NRC construction permit for a commercial advanced reactor (Wyoming, March 2026).","Meta funds two units, targeted around 2032, with rights to up to six more.","Each unit is 345 MW and can boost to 500 MW from storage."],s:["tpfaq","cnbcmeta","nbtp"]},
+ oklo:{b:"P5",n:"Oklo",t:"OKLO · California",fut:1,role:"Small sodium-cooled 'Aurora' powerhouses that Oklo owns and sells power from.",
+  f:["Its Groves isotope reactor in Texas reached first criticality on Aug 5, 2026.","Meta deal for a 1.2 GW campus in Pike County, Ohio, possibly online by 2030.","First Aurora (75 MW, Idaho) targeted for 2028; $3.0B in cash at June 30."],s:["oklo","cnbcmeta"]},
+ elementl:{b:"P5",n:"Elementl Power",t:"private · US",fut:1,role:"Developer preparing three advanced-nuclear sites for Google.",
+  f:["Three sites of about 600 MW each, around 1.8 GW total, aiming for about 2030."],s:["smr"]},
+
+ fcx:{b:"H0",n:"Freeport-McMoRan",t:"FCX · Arizona",role:"One of the largest copper miners. Copper carries power through every data center, grid line and transformer.",
+  f:["Copper traded near record highs, about $6.70/lb, in September 2026, with AI data centers a key source of demand.","Its Grasberg mine in Indonesia is recovering from a September 2025 mudslide; full capacity expected by the end of 2027.","S&P Global sees mined copper falling about 10 million tonnes short of demand by 2040."],s:["fcx"]},
+ mp:{b:"H0",n:"MP Materials",t:"MP · California",role:"The main US rare earth miner and magnet maker. Its magnets go into motors, cooling fans, drives and robots.",
+  f:["China controls about 90% of rare earth magnet production and has tightened exports.","The Pentagon owns about 15% and guarantees a $110/kg price floor for a decade.","Apple committed $500M to buy US-made magnets; MP targets 10,000 t of magnets a year by 2028."],s:["mp"]},
+ asml:{b:"H1",n:"ASML",t:"ASML · Netherlands",role:"The only maker of the EUV lithography machines needed to print advanced AI chips.",
+  f:["Raised its 2026 sales forecast for the second time in July on AI chip demand.","TSMC and Samsung committed to its newest High-NA EUV machines for AI chips (Sept 2026).","A major investor in Mistral AI."],s:["asmlq2","asmlhna","mistral"]},
+ tsmc:{b:"H1",n:"TSMC",t:"TSM · Taiwan",role:"Manufactures nearly every advanced AI chip in the world.",
+  f:["Builds chips for Nvidia, AMD, Google's TPUs, Amazon's Trainium and Microsoft's Maia.","Its CoWoS packaging is scaling to about 130,000 wafers a month by end of 2026; Nvidia has reserved over half."],s:["tsmc","asic"]},
+ skhynix:{b:"H1",n:"SK hynix",t:"SKHY · South Korea",role:"The top maker of HBM, the stacked memory next to every AI chip.",
+  f:["63% of HBM revenue in 2025, per IDC. Listed US shares (ADRs) on Nasdaq in 2026.","Multi-year partnership with Nvidia (June 2026) on memory for Vera Rubin."],s:["skh","mu"]},
+ micron:{b:"H1",n:"Micron",t:"MU · Idaho",role:"The only US maker of HBM.",
+  f:["Roughly a fifth of the HBM market; 2026 output sold out under multi-year contracts."],s:["hbm","mu"]},
+ samsung:{b:"H1",n:"Samsung",t:"KRX: 005930 · Korea",role:"The third HBM supplier.",
+  f:["About 17% of HBM; customers include AMD and Google."],s:["hbm"]},
+ nvidia:{b:"H2",n:"Nvidia",t:"NVDA · California",role:"Designs the GPUs most AI data centers run on.",
+  f:["Current platform is Vera Rubin, after Blackwell.","Has its rack systems assembled mainly by Foxconn, Quanta and Wistron."],s:["mu","fox"]},
+ amd:{b:"H2",n:"AMD",t:"AMD · California",role:"The second merchant GPU supplier (Instinct line).",
+  f:["Sells through server makers such as Dell and Supermicro."],s:["oem"]},
+ broadcom:{b:"H2",n:"Broadcom",t:"AVGO · California",role:"Co-designs Google's TPU chips; also a major AI networking chip maker.",
+  f:["Supply agreement with Google for future TPU generations through 2031.","Holds roughly 60% of the custom AI chip design market."],s:["asic","chain"]},
+ marvell:{b:"H2",n:"Marvell",t:"MRVL · California",role:"Co-designs Amazon's Trainium and Microsoft's Maia chips.",
+  f:["Expanded Google deal (Aug 2026) for chips that work alongside TPUs.","Holds roughly 35% of custom AI chip design."],s:["asic","mrvl","chain"]},
+ foxconn:{b:"H3",n:"Foxconn",t:"TWSE: 2317 · Taiwan",role:"Nvidia's largest AI rack builder, about 40% of AI rack assembly.",
+  f:["Main customers include Nvidia, Microsoft and Amazon."],s:["fox"]},
+ quanta:{b:"H3",n:"Quanta",t:"TWSE: 2382 · Taiwan",role:"Second-largest AI rack builder, about 25–30%.",
+  f:["Main customers include Google, Microsoft and Meta."],s:["fox"]},
+ wistron:{b:"H3",n:"Wistron",t:"TWSE: 3231 · Taiwan",role:"AI rack builder with about 8–10% share.",
+  f:["Main customers include Amazon."],s:["fox"]},
+ dell:{b:"H3",n:"Dell",t:"DELL · Texas",role:"The leading branded AI server maker for companies and smaller clouds.",
+  f:["The largest clouds mostly skip branded servers and buy from Taiwanese assemblers."],s:["oem"]},
+ supermicro:{b:"H3",n:"Supermicro",t:"SMCI · California",role:"Branded AI servers with much of its own US manufacturing.",
+  f:["Sells mainly to enterprises, government and GPU cloud providers."],s:["oem"]},
+ arista:{b:"HN",n:"Arista Networks",t:"ANET · California",role:"Ethernet switches that connect thousands of GPUs inside AI clusters.",
+  f:["Microsoft was 26% and Meta 16% of its 2025 revenue.","Delivered its first $3 billion quarter in Q2 2026."],s:["anet","anetq2"]},
+ credo:{b:"HN",n:"Credo",t:"CRDO · California",role:"Active electrical cables and chips that move data between servers and switches.",
+  f:["Revenue grew 115% to a record $479M last quarter, its seventh straight quarter of triple-digit growth.","Its top two customers, both hyperscalers, are 61% of revenue."],s:["crdo"]},
+ coherent:{b:"HN",n:"Coherent",t:"COHR · Pennsylvania",role:"Optical transceivers and lasers that turn electrical signals into light between racks.",
+  f:["Nvidia invested $2B in March 2026, with a multibillion-dollar purchase commitment for lasers and optics.","Revenue forecast to grow about 49% in fiscal 2027."],s:["nvopt","sa"]},
+ lumentum:{b:"HN",n:"Lumentum",t:"LITE · California",role:"Lasers for co-packaged optics, pluggable transceivers and optical circuit switches.",
+  f:["Nvidia invested $2B in March 2026, with a multibillion-dollar purchase commitment.","Revenue forecast to roughly double in fiscal 2027."],s:["nvopt","sa"]},
+ corning:{b:"HN",n:"Corning",t:"GLW · New York",role:"Optical fiber and cable that wire data centers together.",
+  f:["Meta deal worth up to $6B for fiber and cable (Jan 2026).","Multibillion-dollar fiber deal with Amazon (June 2026).","Partnership with Nvidia to expand US optical connectivity manufacturing tenfold (May 2026)."],s:["glwmeta","glwamzn"]},
+ astera:{b:"HN",n:"Astera Labs",t:"ALAB · California",role:"Switch and retimer chips that link GPUs, CPUs and memory inside a rack.",
+  f:["Q2 2026 revenue rose 104% to $392M; it guided Q3 to about $550M.","Its Scorpio switches became its largest product line a quarter early."],s:["alab"]},
+ gevernova:{b:"H4",n:"GE Vernova",t:"GEV · Massachusetts",role:"Gas turbines for new power plants, plus grid gear like transformers.",
+  f:["Had 116 GW of gas turbines in backlog or reserved slots by mid-2026, aiming for 125 GW by year-end.","New heavy-duty turbines take about three years to deliver.","Data center orders for its grid equipment topped $5B in the first half of 2026."],s:["gev","gevlead"]},
+ eaton:{b:"H4",n:"Eaton",t:"ETN · Ireland, Ohio",role:"Switchgear, breakers and transformers that carry power through the building.",
+  f:["Data center orders rose about 85% year over year in Q2 2026."],s:["grid"]},
+ vertiv:{b:"H4",n:"Vertiv",t:"VRT · Ohio",role:"Backup power (UPS) and the liquid cooling that AI racks now need.",f:[],s:["grid"]},
+ caterpillar:{b:"H4",n:"Caterpillar",t:"CAT · Texas",role:"Generators and Solar Turbines gas turbines for on-site data center power.",
+  f:["Power generation sales rose 72% in Q2 2026; total backlog a record $72B.","Its Solar Turbines unit supplies gas turbines that power xAI's Colossus in Memphis.","Restarting a 10 MW gas engine line to add 1.5 GW of capacity."],s:["cat","colossus","col2"]},
+ tesla:{b:"H4",n:"Tesla",t:"TSLA · Texas",role:"Megapack batteries that smooth power for data centers, including Colossus.",
+  f:["168 Megapacks back up Colossus in Memphis.","Energy storage is a small part of Tesla; the stock mostly trades on cars, robotaxis and robots."],s:["colossus"]},
+ schneider:{b:"H4",n:"Schneider Electric",t:"EPA: SU · France",role:"Power distribution, cooling and building controls.",f:[],s:[]},
+ eqt:{b:"P6",n:"EQT",t:"EQT · Pittsburgh",role:"The largest US natural gas producer, in the Appalachian basin near many data centers.",
+  f:["Exclusive gas supplier to the Homer City campus in Pennsylvania: a 4.4 GW gas plant on a former coal site, with power from 2027.","Up to 665,000 MMBtu of gas a day for Homer City alone."],s:["eqt"]},
+ williams:{b:"P6",n:"Williams",t:"WMB · Oklahoma",role:"Gas pipelines, now also building gas power plants right beside data centers.",
+  f:["Its Socrates project (200 MW) powers Meta's data center in New Albany, Ohio.","Five behind-the-meter projects total 2.6 GW; Blackstone paid $5.34B for 49% of them (July 2026)."],s:["wmb"]},
+ dominion:{b:"P7",n:"Dominion Energy",t:"D · Virginia",role:"The utility for Northern Virginia, the world's largest data center market.",
+  f:["53.8 GW of data center capacity under contract as of July 2026.","Agreed to be acquired by NextEra in a $66.8B deal expected to close in the second half of 2027."],s:["dom"]},
+ southern:{b:"P7",n:"Southern Company",t:"SO · Georgia",role:"Georgia Power and Alabama Power, serving a fast-growing data center region.",
+  f:["17 GW of large-load contracts signed through the mid-2030s.","OpenAI is building a 3.2 GW site in Effingham County, Georgia, starting 2028.","Closed a $26.5B DOE loan package in Feb 2026."],s:["so"]},
+ entergy:{b:"P7",n:"Entergy",t:"ETR · Louisiana",role:"The utility building gas plants for Meta's Hyperion AI campus.",
+  f:["10 gas plants, about 7.5 GW, for Hyperion; Meta pays for them under a 15-year contract.","The seven newest plants still need Louisiana regulator approval."],s:["etr"]},
+ aep:{b:"P7",n:"American Electric Power",t:"AEP · Ohio",role:"A utility across 11 states with one of the largest data center pipelines.",
+  f:["63 GW of contracted capacity, about 90% tied to data centers (May 2026).","Named customers include Amazon (Louisiana) and Google (West Virginia).","Raised its capital plan to $78B."],s:["aep"]},
+ peabody:{b:"P8",n:"Peabody Energy",t:"BTU · Missouri",role:"The largest US coal miner.",
+  f:["Produced about 18% of US coal in 2023; sells mostly to utilities."],s:["crs"]},
+ core:{b:"P8",n:"Core Natural Resources",t:"CNR · Pennsylvania",role:"Coal miner formed from the Arch and CONSOL merger.",
+  f:["Says US utility coal use rose about 12% in 2025 as power demand climbed."],s:["core"]},
+
+ oracle:{b:"R",n:"Oracle",t:"ORCL · Texas",role:"Builds giant AI data centers and rents the compute, mainly to OpenAI.",
+  f:["Contract backlog jumped $209B in one quarter to $664B.","Spent $28B on capex in one quarter; carries about $125B of debt.","Fiscal Q1 revenue grew 30%, cloud 60%."],s:["orcl","capex"]},
+ coreweave:{b:"R",n:"CoreWeave",t:"CRWV · New Jersey",role:"The largest independent AI cloud, renting Nvidia GPUs by the hour.",
+  f:["Revenue backlog about $104B; 2026 revenue forecast about $12.9B, +151%.","Debt about $27B; 2026 capex plan $35–39B.","Customers include Microsoft, OpenAI, Meta and Anthropic."],s:["crwv","neo"]},
+ nebius:{b:"R",n:"Nebius",t:"NBIS · Netherlands",role:"Full-stack AI cloud with large contracts from Microsoft and Meta.",
+  f:["Microsoft: $17.4B over 5 years plus $2B optional (Sept 2025).","Meta: $3B (Dec 2025), then $12B plus $15B optional (April 2026).","Revenue forecast to grow from about $3.3B (2026) to $12.3B (2027)."],s:["nbis","sa"]},
+ iren:{b:"R",n:"IREN",t:"IREN · Australia, Texas",role:"Former bitcoin miner turned AI cloud, built on cheap power sites.",
+  f:["$9.7B, 5-year Microsoft contract with 20% paid upfront.","Delivered the first phase (Childress, Texas) in mid-Sept 2026.","Another $2.8B of contracts with Together AI, Nvidia, Perplexity and others."],s:["iren"]},
+ apld:{b:"R",n:"Applied Digital",t:"APLD · North Dakota",role:"Builds AI data center campuses and leases them out on 15-year terms.",
+  f:["1.2 GW contracted across four campuses.","$7.5B, 15-year lease with an unnamed investment-grade hyperscaler (May 2026).","CoreWeave leases 400 MW plus 150 MW at Polaris Forge 1."],s:["apld","neo"]},
+ equinix:{b:"R",n:"Equinix",t:"EQIX · California",role:"The largest data center landlord for interconnection, a REIT.",
+  f:["Eight of the top ten AI model providers and neoclouds use its sites.","Made the largest guidance raise in its history; dividend about $20.64 a year."],s:["reits"]},
+ dlr:{b:"R",n:"Digital Realty",t:"DLR · Texas",role:"Large wholesale data center landlord, a REIT.",
+  f:["Signed a 200 MW AI inference lease, its largest ever; record $1.9B backlog.","1.4 GW development pipeline, 63% pre-leased; dividend $4.88 a year."],s:["reits"]},
+
+ spacex:{b:"R",n:"SpaceX",t:"SPCX · Memphis, orbit",g:"Space & AI labs",role:"Rockets, Starlink and, since merging with xAI, the Colossus AI data centers it rents out.",
+  f:["Rents compute to Anthropic ($1.25B a month) and Google ($920M a month).","Colossus in Memphis is about 1 GW, built on Nvidia GPUs in Dell and Supermicro servers.","Powers itself with gas turbines and Tesla Megapacks; permit lawsuits over its Mississippi turbines.","Plans a first orbital data center with Nvidia in Q4 2027."],s:["spcxfort","colossus","col2","spcxorb","spcxq2"]},
+ fluidstack:{b:"R",n:"Fluidstack",t:"private · London",role:"Neocloud building Anthropic's own data centers in Texas and New York.",
+  f:["$50B partnership with Anthropic (Nov 2025); sites coming online through 2026."],s:["anthfs"]},
+ nscale:{b:"R",n:"Nscale",t:"private · UK",role:"Neocloud with a large West Virginia campus.",
+  f:["$45B compute deal with Anthropic (Aug 2026), about 460 MW of Nvidia Vera Rubin."],s:["anthns"]},
+ lambda:{b:"R",n:"Lambda",t:"private · Nvidia-backed",role:"GPU cloud provider.",
+  f:["$35B cloud deal with Anthropic (Aug 31, 2026), about 350 MW in Texas."],s:["anthlam","anthdeals"]},
+ microsoft:{b:"U",n:"Microsoft",t:"MSFT · Azure",role:"Buys nuclear power, neocloud capacity and racks.",
+  f:["Nuclear: Constellation's Crane restart, 835 MW.","Neocloud contracts: Nebius ($17.4B+), IREN ($9.7B), CoreWeave.","Chips: Nvidia plus its own Maia (Marvell, TSMC)."],s:["crane","nbis","iren"]},
+ amazon:{b:"U",n:"Amazon",t:"AMZN · AWS",role:"Has the most nuclear power flowing today, plus stakes in new reactors.",
+  f:["Nuclear: ~1.9 GW from Talen, 690 MW from Constellation, X-energy SMRs later.","2026 capex guidance about $220B, raised after Q2.","Chips: Nvidia plus its own Trainium (Marvell, TSMC)."],s:["smr","calvert","capex"]},
+ google:{b:"U",n:"Google",t:"GOOGL · Cloud",role:"Paying to restart an old plant and to build three kinds of new ones.",
+  f:["Nuclear: Duane Arnold (615 MW, 2029), Kairos (500 MW), Elementl (~1.8 GW).","2026 capex guidance $195–205B; expects another big increase in 2027.","Chips: its own TPUs with Broadcom and Marvell, made by TSMC."],s:["dcd","smr","capex"]},
+ meta:{b:"U",n:"Meta",t:"META · Prometheus",role:"The largest nuclear buyer by signed capacity, up to 6.6 GW by 2035.",
+  f:["Nuclear: Vistra (2.6 GW), Clinton (1.1 GW), TerraPower and Oklo.","Neocloud contracts with Nebius and CoreWeave.","2026 capex guidance $130–145B."],s:["cnbcmeta","nbis","capex"]},
+ anthropic:{b:"U",n:"Anthropic",t:"private · IPO filed",role:"Maker of Claude, and one of the biggest buyers of AI compute from almost everyone on this map.",
+  f:["Valued at $965B in its $65B Series H (May 2026); $47B annualized revenue run-rate reported in May.","Has committed $518B to cloud and infrastructure over the next decade, per its IPO filing.","Filed confidentially for an IPO; reports point to after the November midterms."],s:["anthh","anths1","anthdeals"]},
+ apple:{b:"U",n:"Apple",t:"AAPL · California",role:"Runs Siri's new AI on Google's Gemini models inside its own data centers.",
+  f:["Pays Google about $1B a year for a custom Gemini model (Jan 2026); it runs on Apple's own Private Cloud Compute servers.","Building its own AI server chip, Baltra, with Broadcom; Apple-run data centers from 2027.","Committed $500M to MP Materials for US-made magnets."],s:["aapl","mp"]},
+ mistral:{b:"U",n:"Mistral AI",t:"private · France",role:"Europe's leading AI lab, selling 'sovereign' AI to governments and companies.",
+  f:["Raised €3B at a €21B valuation (Sept 2026), led by Samsung; Nvidia and ASML are investors.","Plans 1 GW of its own compute in Europe by 2030."],s:["mistral"]},
+ alibaba:{b:"U",n:"Alibaba",t:"BABA · China",role:"China's largest AI cloud, building its own chips alongside limited Nvidia supply.",
+  f:["About 36% of China's AI cloud market.","Considering raising its three-year AI infrastructure budget to about $69B.","Approved to buy part of a 400,000 Nvidia H200 allocation shared with ByteDance and Tencent; also builds its own chips."],s:["baba"]},
+ openai:{b:"U",n:"OpenAI",t:"private · Stargate",role:"The biggest renter of AI compute, mainly through Oracle and CoreWeave.",
+  f:["Its roughly $300B compute contract is the core of Oracle's backlog.","Doubts about whether it can pay for everything it has signed have hit Oracle's and CoreWeave's stocks."],s:["orcl","crwv"]}
+};
+
+/* Stock data. px = Oct 2, 2026 close unless d says otherwise. avg/lo/hi = 12-month analyst targets; n = analysts; r = consensus. pe = price / next-FY EPS estimate. risk 1 lower .. 4 very high. */
+const S = {
+ cameco:{tk:"CCJ",px:85.18,avg:126.85,lo:83.2,hi:169.27,n:21,r:"Buy",eps:2.59,risk:2,mv:"−7% this year; −12% in the past month",
+  bull:"Long-term uranium price hit a 19-year high ($96/lb); its contracts reprice upward over time, and it owns 49% of Westinghouse as the $80B AP1000 program starts.",
+  bear:"Its realized price (~$65/lb) lags the market, utilities signed 15% less in long-term contracts, and it's priced for profits that haven't arrived.",
+  cat:"New long-term contracts; first firm AP1000 orders.",note:"Some targets may be in Canadian dollars, which would inflate this upside."},
+ uec:{tk:"UEC",px:9.30,avg:16.21,lo:10,hi:26.75,n:11,r:"Buy",eps:null,risk:3,mv:"−20% this year",
+  bull:"US-origin uranium is in demand, revenue is forecast to triple in 2027, and it plans a US conversion plant.",
+  bear:"Still loses money; small production; depends on uranium prices.",cat:"Wyoming conversion plant licensing."},
+ bhp:{tk:"BHP",px:86.07,avg:76.25,lo:61.5,hi:91,n:8,r:"Hold",eps:null,risk:2,
+  bull:"Diversified miner with a uranium by-product.",bear:"Uranium is too small to move the stock; analysts see downside.",cat:"Copper and iron ore prices."},
+ converdyn:{via:"Exposure through Solstice Advanced Materials (SOLS), which owns the Metropolis plant.",alias:"sols"},
+ sols:{tk:"SOLS",px:56.32,d:"Sep 30",avg:80.25,lo:70,hi:86,n:8,r:"Buy",eps:null,risk:2,
+  bull:"Owns the only US conversion plant, a chokepoint as enrichment expands.",bear:"Conversion is a small part of a broader chemicals company.",cat:"Metropolis de-bottlenecking or a new plant decision."},
+ centrus:{tk:"LEU",px:139.27,avg:247.40,lo:168.77,hi:340,n:19,r:"Buy",eps:3.76,risk:3,mv:"Fell with the September nuclear selloff",
+  bull:"The only US HALEU producer, with a $900M DOE order and supply deals with Oklo and X-energy.",
+  bear:"Relies on Russian LEU waivers through 2027; earnings stay flat until new capacity around 2029.",cat:"Centrifuge build milestones; new HALEU offtake contracts."},
+ aspi:{tk:"ASPI",px:2.91,avg:13,lo:11,hi:15,n:3,r:"Strong Buy",eps:null,risk:4,
+  bull:"HALEU supply deals tied to TerraPower's first reactors.",bear:"Micro-cap with only three analysts; big plans relative to its size.",cat:"Funding and construction of its HALEU plant."},
+ bwxt:{tk:"BWXT",px:134.86,avg:217.69,lo:165,hi:290,n:18,r:"Buy",eps:5.24,risk:2,
+  bull:"Steady naval-reactor work for the US government plus growth in TRISO fuel and enrichment; even the lowest target is above today's price.",
+  bear:"New fuel and enrichment plants are years away (2031–2035).",cat:"NNSA enrichment licence application, planned Q1 2027."},
+ westinghouse:{via:"Private. Exposure through Cameco (CCJ, 49%) and Brookfield (51%).",alias:"cameco"},
+ porthope:{via:"Part of Cameco (CCJ).",alias:"cameco"},
+ gle:{via:"Cameco (CCJ) owns 49%; Silex Systems (ASX: SLX) owns 51%.",alias:"cameco"},
+ gnf:{via:"Part-owned by GE Vernova (GEV), Hitachi and Toshiba.",alias:"gevernova"},
+ trisox:{via:"Part of X-energy (XE).",alias:"xenergy"},
+ constellation:{tk:"CEG",px:257.49,avg:342.98,lo:290,hi:395,n:22,r:"Buy",eps:13.32,risk:2,
+  bull:"The biggest nuclear fleet with three signed hyperscaler deals; earnings +29% this year; even the lowest target is above today's price.",
+  bear:"Crane restart timing depends on regulators; earnings swing with power prices.",cat:"Crane operating licence decision (~May 2027); more PPAs."},
+ vistra:{tk:"VST",px:140.02,avg:212.79,lo:106,hi:305,n:20,r:"Strong Buy",eps:10.37,risk:2,
+  bull:"Meta's 2.6 GW, 20-year contract locks in prices; earnings forecast +81% this year and +20% next.",
+  bear:"Large gas fleet and Texas power-price swings; fell with the nuclear selloff.",cat:"More data center contracts; licence renewals for the Meta plants."},
+ talen:{tk:"TLN",px:320.77,avg:460.59,lo:307,hi:560,n:17,r:"Buy",eps:30.75,risk:2,
+  bull:"Amazon contract to 2042; earnings forecast to more than double this year.",
+  bear:"Heavily concentrated in one big plant and one customer.",cat:"Delivery ramp under the Amazon contract."},
+ nextera:{tk:"NEE",px:76.83,avg:98.16,lo:55,hi:114,n:21,r:"Buy",eps:4.39,risk:1,
+  bull:"Duane Arnold restart for Google, a 35 GW development backlog, and a proposed merger with Dominion.",
+  bear:"A slower-growing utility; the merger needs five regulatory approvals.",cat:"NRC restart approvals; merger approvals (close expected 2H 2027)."},
+ xenergy:{tk:"XE",px:14.29,d:"Sep 29",avg:34.38,lo:9,hi:57,n:9,r:"Buy",eps:null,risk:4,
+  bull:"Amazon is investor and customer, and its fuel plant is already licensed.",
+  bear:"Piper Sandler rates it Sell ($9): customers carry the project risk. No reactor running yet.",cat:"First Xe-100 construction decision with Energy Northwest."},
+ oklo:{tk:"OKLO",px:35.87,avg:75.78,lo:14,hi:130,n:25,r:"Buy",eps:null,risk:4,mv:"−50% this year",
+  bull:"First criticality at its Texas isotope reactor in Aug 2026, $3B cash, Meta 1.2 GW campus; Piper Sandler likes its build-own-operate model.",
+  bear:"Almost no revenue until Aurora (2028 at the earliest); has raised $1.9B in new shares, so more dilution is possible.",cat:"First isotope revenue (early 2027); Aurora licensing."},
+ tsmc:{tk:"TSM",px:472.78,avg:552.26,lo:440,hi:700,n:21,r:"Strong Buy",eps:null,pen:"ADR vs TWD",risk:2,
+  bull:"Makes nearly every advanced AI chip, for Nvidia and every custom-chip rival alike; earnings forecast +63% this year.",
+  bear:"Taiwan geopolitics.",cat:"CoWoS capacity additions; monthly sales reports."},
+ skhynix:{tk:"SKHY",px:195.13,avg:252.21,lo:152,hi:355,n:15,r:"Buy",eps:null,risk:3,
+  bull:"Leads HBM with about 63% share and a multi-year Nvidia partnership.",
+  bear:"Memory is a boom-and-bust business; Korean chip stocks swing hard (Kospi fell 9% in one June day).",cat:"HBM4 volume for Vera Rubin; 2027 pricing talks."},
+ micron:{tk:"MU",px:1074.89,avg:1520,lo:361,hi:2200,n:49,r:"Strong Buy",eps:176.42,risk:3,
+  bull:"HBM sold out for 2026 under multi-year contracts; trades at about 6 times next year's expected earnings.",
+  bear:"A very low P/E in memory often marks a peak in the cycle; the target range ($361–$2,200) shows how unsure analysts are.",cat:"Quarterly results and 2027 HBM pricing."},
+ nvidia:{tk:"NVDA",px:233.95,avg:327.70,lo:180,hi:515,n:61,r:"Strong Buy",eps:15.7,risk:2,
+  bull:"Earnings forecast +95% this year and +69% next, at about 15 times next year's earnings.",
+  bear:"Custom chips (TPU, Trainium, Maia) take share; worries about circular AI financing.",cat:"Vera Rubin ramp; hyperscaler capex updates in late October."},
+ amd:{tk:"AMD",px:633.91,avg:619.51,lo:365,hi:1250,n:55,r:"Strong Buy",eps:15.58,risk:3,
+  bull:"Earnings forecast to double in 2027.",bear:"Already above the average analyst target.",cat:"Instinct GPU wins at the big clouds."},
+ broadcom:{tk:"AVGO",px:355.14,avg:531.85,lo:215.88,hi:715,n:50,r:"Strong Buy",eps:19.39,risk:2,
+  bull:"Google TPU contract through 2031, OpenAI's custom chip, and earnings +66% next year at about 18 times.",
+  bear:"Margin worries sent it down 7.5% in one day in June; Google is adding Marvell and MediaTek as partners.",cat:"Next quarterly AI revenue guide."},
+ marvell:{tk:"MRVL",px:272.29,avg:290.97,lo:210,hi:400,n:46,r:"Strong Buy",eps:6.77,risk:3,
+  bull:"Designs Amazon's and Microsoft's AI chips and won new Google work.",bear:"Near its average target already; about 40 times next year's earnings.",cat:"Trainium and Maia volumes."},
+ dell:{tk:"DELL",px:562.52,avg:579.36,lo:480,hi:735,n:29,r:"Buy",eps:25.9,risk:2,
+  bull:"Earnings forecast to more than double next year on AI servers.",bear:"Near its target; low-margin hardware.",cat:"AI server backlog."},
+ supermicro:{tk:"SMCI",px:43.69,avg:42.38,lo:15,hi:60,n:19,r:"Hold",eps:4.34,risk:3,
+  bull:"Cheap on earnings.",bear:"Analysts rate it Hold and see slight downside.",cat:"Margins and customer wins."},
+ gevernova:{tk:"GEV",px:988.70,avg:1230,lo:940,hi:1450,n:37,r:"Buy",eps:25.17,risk:2,
+  bull:"Gas turbines are sold out years ahead (116 GW in backlog and slots), giving it pricing power; earnings forecast +67% in 2027.",
+  bear:"Expensive at about 39 times next year's earnings.",cat:"Q3 results and gas slot bookings."},
+ eaton:{tk:"ETN",px:436.11,avg:481.55,lo:333,hi:534,n:28,r:"Buy",eps:16.18,risk:1,
+  bull:"Data center orders +85% in Q2.",bear:"Modest upside to targets.",cat:"Data center order growth."},
+ vertiv:{tk:"VRT",px:252.18,avg:337.74,lo:236,hi:427,n:29,r:"Strong Buy",eps:9.17,risk:2,
+  bull:"Liquid cooling becomes mandatory for dense AI racks; earnings +60% this year.",bear:"Competition from Schneider and Eaton.",cat:"Orders and backlog."},
+ peabody:{tk:"BTU",px:25.07,d:"Sep 21",avg:31.92,lo:27.5,hi:36,n:6,r:"Buy",eps:2.84,risk:3,
+  bull:"Coal generation rose 13% in 2025 as data centers lifted demand.",bear:"Long-term decline in coal use; loses money this year.",cat:"Utility coal contracts for 2027."},
+ core:{tk:"CNR",px:87.60,d:"Oct 1",avg:109.50,lo:105,hi:118,n:4,r:"Buy",eps:6.65,risk:3,
+  bull:"High-quality thermal coal and rising US power demand; earnings +66% in 2027.",bear:"Few analysts cover it; coal is in long-term decline.",cat:"Coal prices and exports."},
+ oracle:{tk:"ORCL",px:142.30,avg:237.97,lo:110,hi:400,n:43,r:"Buy",eps:8.14,risk:3,mv:"−56% from its peak",
+  bull:"A $664B backlog, cloud growing 60%, and profits still cover interest comfortably.",
+  bear:"About $125B of debt and heavy reliance on OpenAI paying its $300B contract.",cat:"Next quarter's backlog and capex; OpenAI funding news."},
+ coreweave:{tk:"CRWV",px:89.62,avg:141.58,lo:39,hi:317,n:41,r:"Buy",eps:null,risk:4,mv:"−48% from its 52-week high",
+  bull:"About $104B of contracted backlog and revenue doubling again in 2027.",
+  bear:"About $27B of debt, still losing money, and its biggest customers are building their own capacity.",cat:"New financing terms; Q3 results."},
+ nebius:{tk:"NBIS",px:242.81,avg:283.58,lo:84,hi:415,n:19,r:"Buy",eps:null,risk:4,
+  bull:"About $46B in Microsoft and Meta contracts; revenue forecast to nearly quadruple in 2027.",
+  bear:"Losses widen next year as it builds; the target range ($84–$415) is very wide.",cat:"Meta capacity going live in early 2027."},
+ iren:{tk:"IREN",px:41.76,avg:77.69,lo:40,hi:131,n:20,r:"Buy",eps:null,risk:4,mv:"About +12% over 12 months",
+  bull:"$9.7B Microsoft contract, first phase delivered on time, and cheap power sites.",
+  bear:"Losses grow next year as it builds; must prove it can run a cloud business.",cat:"Next phases of the Microsoft build."},
+ apld:{tk:"APLD",px:25.38,avg:66.43,lo:22,hi:109,n:15,r:"Strong Buy",eps:null,risk:4,
+  bull:"1.2 GW under 15-year leases, about 65% of revenue from investment-grade hyperscalers.",
+  bear:"Construction and financing risk; earnings turn negative next year.",cat:"Naming of its hyperscaler tenant; new leases."},
+ equinix:{tk:"EQIX",px:1025.72,avg:1234,lo:1060,hi:1380,n:34,r:"Buy",eps:null,pen:"REIT",risk:1,
+  bull:"Record bookings, largest guidance raise in its history, rising dividend.",bear:"Rising cost of capital as it spends $5–7B a year.",cat:"Q3 bookings."},
+ dlr:{tk:"DLR",px:176.49,d:"Oct 1",avg:223.44,lo:190,hi:250,n:34,r:"Strong Buy",eps:null,pen:"REIT",risk:1,
+  bull:"Largest-ever 200 MW AI lease, record backlog, renewals at +25% rents.",bear:"Flat dividend and new share issuance to fund growth.",cat:"Leasing volume."},
+ spacex:{tk:"SPCX",px:171.09,d:"Oct 5",avg:226.04,lo:140,hi:450,n:37,r:"Buy",eps:1.93,risk:3,mv:"IPO $135 on June 12; about $125 after Q2 results; +27% vs IPO",
+  bull:"Revenue nearly doubled in Q2 with AI compute and Starlink both growing; Starship reached orbit; contracted cloud revenue keeps ramping.",
+  bear:"About 89 times 2027 earnings, heavy capex ($28B in six months), and Musk controls about 82–85% of votes.",cat:"Q3 results; orbital data center launch (Q4 2027 target); insider lock-up expiry around June 2027."},
+ echostar:{tk:"ECHO",px:98.21,d:"Oct 5",avg:131.44,lo:103,hi:156,n:9,r:"Strong Buy",eps:null,risk:3,node:"spacex",name:"EchoStar",link:"Holds SpaceX shares",grp:"Space & AI labs",
+  bull:"A listed way to hold SpaceX shares it received for selling spectrum; analysts' lowest target is above today's price.",bear:"Also carries its own satellite and wireless businesses and their debt.",cat:"Changes in SpaceX's price; any sale or distribution of its SpaceX stake."},
+ caterpillar:{tk:"CAT",px:848.14,d:"Oct 5",avg:975.61,lo:575,hi:1225,n:28,r:"Buy",eps:32.38,risk:2,
+  bull:"Record $72B backlog and power generation sales +72% from data center demand for generators and turbines.",bear:"Still tied to the construction and mining cycle; lowest target is well below today.",cat:"Q3 results and power generation orders."},
+ tesla:{tk:"TSLA",px:378.73,d:"Oct 5",avg:395.83,lo:125,hi:600,n:43,r:"Buy",eps:2.14,risk:4,
+  bull:"Megapack demand from data centers and the grid.",bear:"Storage is a small slice; at about 177 times next year's earnings the stock depends on cars, robotaxis and robots.",cat:"Q3 deliveries and energy storage numbers."},
+ arista:{tk:"ANET",px:206.90,d:"Oct 5",avg:241.93,lo:190,hi:289,n:31,r:"Strong Buy",eps:5.20,risk:2,
+  bull:"AI clusters keep moving to Ethernet; earnings forecast +38% this year and +27% next.",bear:"Microsoft and Meta are 42% of revenue, and Nvidia sells competing switches.",cat:"AI networking revenue versus its raised 2026 target."},
+ credo:{tk:"CRDO",px:212.48,d:"Oct 5",avg:280.10,lo:185,hi:350,n:19,r:"Strong Buy",eps:6.31,risk:3,
+  bull:"Seven straight quarters of triple-digit growth; earnings forecast +82% next year; optical products could add much more per GPU.",bear:"Two customers are 61% of revenue.",cat:"Optical revenue toward its fiscal 2027 goal of $600M+."},
+ coherent:{tk:"COHR",px:333.64,d:"Oct 5",avg:415.36,lo:280,hi:500,n:23,r:"Buy",eps:9.42,risk:3,
+  bull:"Nvidia's $2B investment and purchase commitment; earnings forecast +68% next year.",bear:"Crowded market with Lumentum and Asian makers; many non-AI businesses.",cat:"Co-packaged optics ramp at Nvidia."},
+ lumentum:{tk:"LITE",px:1091.67,d:"Oct 5",avg:1157,lo:820,hi:1400,n:26,r:"Buy",eps:21.74,risk:3,
+  bull:"Nvidia's $2B investment; revenue forecast to roughly double in fiscal 2027.",bear:"Already near its average target after a big run.",cat:"Laser capacity additions and Nvidia orders."},
+ corning:{tk:"GLW",px:161.57,d:"Oct 6",avg:189.94,lo:129,hi:238,n:17,r:"Strong Buy",eps:4.35,risk:2,
+  bull:"Fiber deals with Meta (up to $6B), Amazon and Nvidia; earnings +30% this year.",bear:"Also tied to slower businesses like display glass.",cat:"New hyperscaler fiber contracts."},
+ astera:{tk:"ALAB",px:362.34,d:"Oct 5",avg:389.95,lo:190,hi:500,n:26,r:"Buy",eps:6.39,risk:3,
+  bull:"Revenue doubled; Q3 guidance is 40% above Q2.",bear:"Near its average target and about 57 times next year's earnings.",cat:"Q3 results versus its $540–560M guide."},
+ eqt:{tk:"EQT",px:51.12,d:"Oct 5",avg:67.50,lo:52,hi:81,n:26,r:"Strong Buy",eps:3.77,risk:2,
+  bull:"Gas powers most new data centers today, and EQT is sole supplier to the 4.4 GW Homer City campus. Even the lowest target is above today's price.",bear:"Earnings swing with gas prices and are forecast to dip in 2027.",cat:"More direct supply deals with data center power plants."},
+ williams:{tk:"WMB",px:70.54,avg:85.61,lo:69,hi:103,n:24,r:"Strong Buy",eps:2.65,risk:1,
+  bull:"Steady pipeline income plus fast-growing power projects for data centers, including Meta's.",bear:"Heavy spending on growth; the pipeline side grows slowly.",cat:"New power project announcements."},
+ dominion:{tk:"D",px:61.31,avg:71.92,lo:63,hi:87,n:16,r:"Hold",eps:3.81,risk:1,
+  bull:"Sits in the biggest data center market with 53.8 GW contracted, plus the NextEra merger.",bear:"Regulated returns cap the upside; the merger still needs approvals.",cat:"Merger hearings begin Nov 17, 2026."},
+ southern:{tk:"SO",px:83.72,avg:98.66,lo:79,hi:112,n:23,r:"Hold",eps:4.92,risk:1,
+  bull:"17 GW of signed large loads, including OpenAI's Georgia site.",bear:"Most new generation arrives in 2031–32; regulated growth.",cat:"Georgia regulator decisions on new plants."},
+ entergy:{tk:"ETR",px:100.91,avg:122.68,lo:91,hi:137,n:23,r:"Buy",eps:5.10,risk:1,
+  bull:"Meta's Hyperion: about $11B of gas plants that Meta pays for; earnings +16% next year.",bear:"Leans heavily on one customer's campus.",cat:"Louisiana approval of the seven new plants."},
+ aep:{tk:"AEP",px:119.73,d:"Oct 5",avg:142.53,lo:128,hi:173,n:23,r:"Buy",eps:6.86,risk:1,
+  bull:"63 GW contracted, mostly data centers; even the lowest target is above today's price.",bear:"A $78B spending plan needs regulator support and new debt.",cat:"Q3 results and load updates."},
+ fcx:{tk:"FCX",px:72.04,avg:73.95,lo:30,hi:85,n:23,r:"Buy",eps:4.16,risk:3,
+  bull:"Copper near record highs with a long-term supply gap; earnings +72% this year.",bear:"Already near its average target; the Grasberg recovery and copper prices can swing it.",cat:"Grasberg ramp and the copper price."},
+ mp:{tk:"MP",px:48.51,d:"Oct 6",avg:73.41,lo:57,hi:100,n:19,r:"Strong Buy",eps:0.82,risk:4,
+  bull:"Pentagon price floor and stake, Apple and GM deals, and US defense contractors must drop Chinese magnets from Jan 2027. Even the lowest target is above today's price.",bear:"Barely profitable so far; China can cut prices or ease export limits.",cat:"Magnet output ramp and China's export policy."},
+ asml:{tk:"ASML",px:1848.95,d:"Oct 6",avg:2107,lo:869.75,hi:2924,n:42,r:"Strong Buy",eps:51.92,risk:2,
+  bull:"A monopoly on EUV machines; raised its 2026 forecast twice on AI demand; earnings +55% this year.",bear:"Export limits to China and chip makers' spending cycles.",cat:"Q3 orders in mid-October."},
+ apple:{tk:"AAPL",px:332.55,d:"Oct 6",avg:328.09,lo:215,hi:405,n:44,r:"Buy",eps:9.58,risk:1,
+  bull:"Huge cash flow; an AI Siri could drive iPhone upgrades.",bear:"Already above its average target, and its AI depends partly on Google.",cat:"iPhone sales and the new Siri rollout."},
+ alibaba:{tk:"BABA",px:110.80,d:"Oct 5",avg:185.41,lo:95.26,hi:238.37,n:40,r:"Strong Buy",eps:null,pen:"ADR currency mix",risk:3,note:"Some targets may be in other currencies, which can distort this upside.",
+  bull:"Leads China's AI cloud; its own chips reduce reliance on Nvidia.",bear:"US–China chip limits and Chinese regulation.",cat:"Cloud growth and capex updates."},
+ mistral:{via:"Private. Public exposure runs through ASML (an investor), Samsung and Nvidia."},
+ anthropic:{via:"Private. It filed confidentially for an IPO; reports say it may seek a valuation above $2T after the November midterms. Today you can get indirect exposure through Alphabet (about 14%), Amazon, and smaller stakes held by Microsoft and Nvidia."},
+ fluidstack:{via:"Private."},
+ nscale:{via:"Private."},
+ lambda:{via:"Private, backed by Nvidia."},
+ microsoft:{tk:"MSFT",px:517.53,avg:577.26,lo:440,hi:870,n:55,r:"Strong Buy",eps:23.65,risk:1,
+  bull:"Azure demand and contracts across Nebius, IREN, CoreWeave and nuclear.",bear:"Capex keeps rising faster than revenue.",cat:"Earnings in late October."},
+ amazon:{tk:"AMZN",px:251.52,avg:330.59,lo:230,hi:405,n:59,r:"Strong Buy",eps:10.48,risk:1,
+  bull:"AWS plus Trainium, with Anthropic as an anchor customer and a stake that produced a $53.4B gain in Q2; earnings +26% next year.",bear:"About $220B capex this year weighs on free cash flow.",cat:"Earnings in late October."},
+ google:{tk:"GOOGL",px:343.50,avg:429.36,lo:340,hi:515,n:61,r:"Strong Buy",eps:15.07,risk:1,
+  bull:"Own TPUs reduce what it pays Nvidia; earnings +28% next year. Also owns about 14% of Anthropic and 4.9% of SpaceX.",bear:"Capex rising again in 2027; its stake gains are on paper and partly locked up.",cat:"Earnings in late October; Anthropic IPO."},
+ meta:{tk:"META",px:728.08,avg:793.91,lo:580,hi:1000,n:62,r:"Strong Buy",eps:34.91,risk:1,
+  bull:"Ad business funds its AI build without outside money.",bear:"Earnings barely grow this year as spending climbs.",cat:"Earnings in late October."},
+ kazatomprom:{via:"Listed in London (LSE: KAP) and Astana; not tracked here."},
+ samsung:{via:"Listed in Korea (KRX: 005930); not tracked here."},
+ foxconn:{via:"Listed in Taiwan (TWSE: 2317); not tracked here."},
+ quanta:{via:"Listed in Taiwan (TWSE: 2382); not tracked here."},
+ wistron:{via:"Listed in Taiwan (TWSE: 3231); not tracked here."},
+ schneider:{via:"Listed in Paris (EPA: SU); not tracked here."},
+ urenco:{via:"Private, owned by the UK and Dutch governments and German utilities."},
+ orano:{via:"Owned by the French state."},
+ rosatom:{via:"Russian state company; not investable for US investors."},
+ gm:{via:"Private startup."},
+ framatome:{via:"Owned by EDF (French state)."},
+ kairos:{via:"Private."},
+ terrapower:{via:"Private, backed by Bill Gates."},
+ elementl:{via:"Private."},
+ openai:{via:"Private. Public exposure runs through Oracle, CoreWeave and Microsoft."}
+};
+
+const E = [
+ ["kazatomprom","cameco","p","Inkai mine partners (60/40)"],
+ ["cameco","porthope","p","owns and runs"],
+ ["cameco","gle","p","owns 49%; buys all output"],
+ ["cameco","westinghouse","p","owns 49%"],
+ ["uec","terrapower","p","exploring Wyoming uranium for Natrium"],
+ ["centrus","oklo","p","HALEU for up to 5 Aurora units, from 2029"],
+ ["centrus","xenergy","d","LEU + HALEU supply (Aug 2026)"],
+ ["centrus","terrapower","p","HALEU agreement"],
+ ["aspi","terrapower","d","HALEU for first Natrium cores"],
+ ["gm","xenergy","d","HALEU enrichment (Aug 2026)"],
+ ["trisox","xenergy","p","makes X-energy's fuel (subsidiary)"],
+ ["gnf","terrapower","d","Natrium Fuel Facility, Wilmington"],
+ ["framatome","terrapower","p","HALEU metal-fuel plant agreement"],
+ ["bwxt","kairos","p","exploring TRISO fuel production"],
+ ["constellation","microsoft","d","Crane restart · 835 MW · 20 yrs"],
+ ["constellation","meta","d","Clinton · ~1.1 GW · 20 yrs"],
+ ["constellation","amazon","d","Calvert Cliffs · 690 MW · 20 yrs"],
+ ["talen","amazon","d","Susquehanna · ~1.9 GW · to 2042"],
+ ["vistra","meta","d","3 plants · 2,609 MW · 20 yrs"],
+ ["nextera","google","d","Duane Arnold restart · 615 MW · 25 yrs"],
+ ["xenergy","amazon","p","Xe-100 small reactors, Washington"],
+ ["kairos","google","p","500 MW · first ~2030"],
+ ["terrapower","meta","p","2 Natrium units, rights to 6 more"],
+ ["oklo","meta","p","1.2 GW Ohio campus · ~2030"],
+ ["elementl","google","p","3 sites × ~600 MW"],
+ ["tsmc","nvidia","d","manufactures GPUs"],
+ ["tsmc","amd","d","manufactures GPUs"],
+ ["tsmc","broadcom","d","manufactures TPUs it co-designs"],
+ ["tsmc","marvell","d","manufactures Trainium / Maia"],
+ ["skhynix","nvidia","d","HBM memory, primary supplier"],
+ ["micron","nvidia","d","HBM memory"],
+ ["samsung","amd","d","HBM memory"],
+ ["samsung","google","d","HBM memory"],
+ ["nvidia","foxconn","d","GPUs and boards for racks"],
+ ["nvidia","quanta","d","GPUs and boards for racks"],
+ ["nvidia","wistron","d","GPUs and boards for racks"],
+ ["nvidia","dell","d","GPUs for branded servers"],
+ ["nvidia","supermicro","d","GPUs for branded servers"],
+ ["nvidia","coreweave","d","GPU systems"],
+ ["nvidia","nebius","d","GPU systems"],
+ ["nvidia","iren","d","GB300 systems"],
+ ["nvidia","oracle","d","GPU systems"],
+ ["amd","dell","d","Instinct GPUs"],
+ ["amd","supermicro","d","Instinct GPUs"],
+ ["broadcom","google","d","TPU co-design, through 2031"],
+ ["marvell","amazon","d","Trainium co-design"],
+ ["marvell","microsoft","d","Maia co-design"],
+ ["marvell","google","d","chips around the TPU (Aug 2026)"],
+ ["foxconn","microsoft","d","AI racks"],
+ ["foxconn","amazon","d","AI racks"],
+ ["quanta","google","d","AI racks"],
+ ["quanta","microsoft","d","AI racks"],
+ ["quanta","meta","d","AI racks"],
+ ["wistron","amazon","d","AI racks"],
+ ["apld","coreweave","d","Polaris Forge leases · 400 + 150 MW"],
+ ["coreweave","microsoft","d","AI cloud capacity"],
+ ["coreweave","meta","d","AI cloud capacity"],
+ ["coreweave","openai","d","AI cloud capacity"],
+ ["nebius","microsoft","d","$17.4B + $2B option · 5 yrs"],
+ ["nebius","meta","d","$3B, then $12B + $15B option"],
+ ["iren","microsoft","d","$9.7B · 5 yrs"],
+ ["oracle","openai","d","~$300B compute contract"],
+ ["caterpillar","spacex","d","Solar Turbines gas turbines for Colossus"],
+ ["tesla","spacex","d","168 Megapacks at Colossus"],
+ ["nvidia","spacex","d","GPUs for Colossus"],
+ ["dell","spacex","d","Colossus servers"],
+ ["supermicro","spacex","d","Colossus servers"],
+ ["spacex","anthropic","d","$1.25B a month to May 2029"],
+ ["spacex","google","d","$920M a month, ~110,000 GPUs"],
+ ["amazon","anthropic","d","~5 GW Trainium, up to $100B · investor"],
+ ["google","anthropic","d","5 GW of TPUs · owns ~14%"],
+ ["broadcom","anthropic","d","3.5 GW of TPUs from 2027"],
+ ["microsoft","anthropic","d","$30B of Azure · investor"],
+ ["nvidia","anthropic","p","up to 1 GW of systems · investor"],
+ ["fluidstack","anthropic","d","$50B, own sites in TX and NY"],
+ ["nscale","anthropic","d","$45B, West Virginia"],
+ ["lambda","anthropic","d","$35B, Texas"],
+ ["nvidia","nscale","d","Vera Rubin systems"],
+ ["nvidia","lambda","d","GPUs · investor"],
+ ["asml","tsmc","d","EUV lithography machines"],
+ ["asml","mistral","p","investor"],
+ ["mp","apple","d","$500M US magnet deal"],
+ ["arista","microsoft","d","26% of Arista's 2025 revenue"],
+ ["arista","meta","d","16% of Arista's 2025 revenue"],
+ ["coherent","nvidia","d","lasers and optics · Nvidia invested $2B"],
+ ["lumentum","nvidia","d","CPO lasers · Nvidia invested $2B"],
+ ["corning","meta","d","fiber, up to $6B"],
+ ["corning","amazon","d","multibillion fiber deal"],
+ ["corning","nvidia","p","US optical manufacturing partnership"],
+ ["williams","meta","d","Socrates gas power, New Albany, Ohio"],
+ ["entergy","meta","d","Hyperion: 10 gas plants, ~7.5 GW"],
+ ["aep","amazon","d","contracted load, Louisiana"],
+ ["aep","google","d","contracted load, West Virginia"],
+ ["southern","openai","d","3.2 GW Georgia site from 2028"],
+ ["dominion","nextera","p","proposed $66.8B merger"],
+ ["google","apple","d","Gemini for Siri, ~$1B a year"],
+ ["broadcom","apple","d","Baltra AI server chip"],
+ ["nvidia","mistral","d","GPUs · investor"],
+ ["samsung","mistral","p","led its Sept 2026 round"],
+ ["nvidia","alibaba","d","approved H200 purchases"]
+];
+const BUYERS = ["microsoft","amazon","google","meta","openai","anthropic","apple","mistral","alibaba"];
+const RBAND = ["spacex","oracle","coreweave","nebius","iren","apld","fluidstack","nscale","lambda","equinix","dlr"];
+const GROUP = {P1:"Fuel",P2:"Fuel",P3:"Fuel",P4:"Fuel",P5:"Power producers",P6:"Gas & utilities",P7:"Gas & utilities",P8:"Coal",H0:"Materials",H1:"Chips & gear",H2:"Chips & gear",H3:"Chips & gear",HN:"Network & optics",H4:"Chips & gear",R:"Data centers",U:"Buyers"};
+const RISK = ["","Lower","Medium","High","Very high"];
+
+const THEMES = [
+ {t:"Power you can buy today",ids:["constellation","vistra","talen","nextera"],risk:2,
+  why:"These companies already own running reactors and have signed 20–25 year contracts with Microsoft, Amazon, Meta and Google. Revenue arrives now, not in 2030. Analysts see 28–52% upside after the September nuclear selloff; for Constellation, even the lowest target is above today's price.",
+  watch:"Power prices, regulator decisions on restarts, and whether more PPAs get signed."},
+ {t:"The fuel bottleneck",ids:["cameco","centrus","bwxt","uec","sols"],risk:3,
+  why:"Uranium's long-term price is at a 19-year high while these stocks fell. Every reactor, old or new, needs this fuel, and enrichment and conversion capacity in the West is scarce. Centrus is the only US source of HALEU for new reactors.",
+  watch:"Whether utilities start signing long-term contracts again; Centrus's Russian waivers end after 2027."},
+ {t:"Long-dated reactor bets",ids:["oklo","xenergy","aspi"],risk:4,
+  why:"The biggest analyst upside on the page, and the widest disagreement. These pay off only if new reactors get licensed, built and fueled on time, which is mostly 2028–2032. Oklo is down 50% this year even after reaching first criticality.",
+  watch:"NRC licensing steps, HALEU supply, and new share sales that dilute existing holders."},
+ {t:"Picks and shovels: chips and gear",ids:["nvidia","broadcom","micron","skhynix","tsmc","gevernova","vertiv","eaton"],risk:2,
+  why:"These get paid as soon as capex is spent, and capex is still rising. Nvidia trades near 15 times next year's earnings and Broadcom near 18. Micron is near 6, which looks cheap but is common at memory-cycle peaks.",
+  watch:"Hyperscaler capex updates in late October, and how much custom chips take from Nvidia."},
+ {t:"The plumbing: networking & optics",ids:["arista","credo","coherent","lumentum","corning","astera"],risk:3,
+  why:"Every GPU needs switches, cables, lasers and fiber to talk to the others, so spending here grows with each new cluster. Nvidia put $4B into Lumentum and Coherent, and Corning signed fiber deals with Meta, Amazon and Nvidia. Most of these stocks have already run up, so analyst upside is modest.",
+  watch:"Customer concentration (Arista's top two customers are 42% of revenue, Credo's 61%) and the move to co-packaged optics."},
+ {t:"Power today: gas, pipes & utilities",ids:["eqt","williams","entergy","aep","southern","dominion"],risk:1,
+  why:"New reactors are years away, so gas and the grid power data centers now. Utilities have signed huge loads (AEP 63 GW, Dominion 53.8 GW, Southern 17 GW) and gas suppliers are signing direct deals. Upside is steadier and most of these pay dividends.",
+  watch:"Regulator approvals for new plants and who pays for them, plus natural gas prices."},
+ {t:"Metals and machines",ids:["fcx","mp","asml"],risk:3,
+  why:"The build-out needs copper for power, rare earth magnets for motors, and ASML's machines to print every advanced chip. These bottleneck businesses also serve markets well beyond AI.",
+  watch:"Copper prices, China's rare earth export rules, and chip makers' equipment orders."},
+ {t:"Other AI buyers",ids:["apple","alibaba","asml"],risk:2,
+  why:"Apple rents Google's Gemini models and is building its own AI chip with Broadcom. Alibaba leads China's AI cloud with its own chips. Mistral, Europe's top lab, is private; ASML is one of its investors.",
+  watch:"Apple's Siri rollout and US–China chip rules."},
+ {t:"Neoclouds and AI landlords",ids:["oracle","coreweave","nebius","iren","apld"],risk:4,
+  why:"Huge contracted backlogs from Microsoft, Meta and OpenAI, but most are funded with debt and still lose money. Oracle is down 56% from its peak and CoreWeave 48%. If the contracts are honored, the upside is large; if a big customer pulls back, the debt makes it painful.",
+  watch:"Financing costs, OpenAI's ability to pay, and whether hyperscalers keep renting instead of building."},
+ {t:"Owning Anthropic and SpaceX",ids:["spacex","echostar","google","amazon"],risk:3,
+  why:"SpaceX is public and rents compute to Anthropic and Google, so it now sits inside the AI chain as well as space. Anthropic is still private; the closest public stakes are Alphabet (about 14%) and Amazon, which also sell it compute. Those two give you both companies at once, with their own businesses as a cushion.",
+  watch:"Anthropic's IPO timing and price, SpaceX's Q3 results, and lock-up expiries that release more shares."},
+ {t:"The buyers and the landlords",ids:["amazon","google","microsoft","meta","equinix","dlr"],risk:1,
+  why:"Lower upside (9–31%) but the most durable businesses here: they fund the whole chain from their own cash flow, or collect rent from it as REITs paying dividends. Amazon and Alphabet show the most analyst upside of the big four.",
+  watch:"Whether AI revenue grows fast enough to justify $600B+ a year of capex."}
+];
+
+const APP = Object.assign({app:false, supabaseUrl:"", supabaseAnonKey:""}, window.MTM_CONFIG||{});
+const LIVE = {loaded:false, data:null, dshort:null};
+const $ = (s,el=document)=>el.querySelector(s);
+const map = $("#map"), svg = $("#links"), insp = $("#insp");
+const chipEl = {}, bandName = {};
+const out = {}, inc = {};
+for (const id in N){ out[id]=[]; inc[id]=[]; }
+E.forEach((e,i)=>{ out[e[0]].push(i); inc[e[1]].push(i); });
+
+function grpOf(id){ return N[id].g || GROUP[N[id].b]; }
+function laneOf(id){ const b=N[id].b; return b==="U"?"u":b==="R"?"dc":b==="P8"?"coal":b[0]==="P"?"power":"hw"; }
+function okStock(s){ return !!(s && s.tk && s.px>0 && s.avg>0); }
+function stockOf(id){ const s=S[id]; if(!s) return null; if(okStock(s)) return s; if(s.alias==="sols" && okStock(S.sols)) return S.sols; return null; }
+function peOf(s){ if(s.fpe!=null && s.fpe>0) return s.fpe; return (s.eps && s.eps>0) ? s.px/s.eps : null; }
+function fmtPE(v){ return v<20? v.toFixed(1) : String(Math.round(v)); }
+function fmtChg(v){ return (v>=0?"+":"−")+Math.abs(v).toFixed(1)+"%"; }
+function upPct(s){ return (s.avg/s.px-1)*100; }
+function upCls(u){ return u>=50?"hi":u>=20?"mid":u>=0?"lo":"neg"; }
+function fmtPct(u){ return (u>=0?"+":"−")+Math.abs(u).toFixed(0)+"%"; }
+function fmt$(v,cur){ const n=(v>=1000? v.toLocaleString("en-US",{maximumFractionDigits:0}) : v.toFixed(2)); return (!cur||cur==="USD")? "$"+n : n+" "+cur; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function pillHTML(id){
+  const s=stockOf(id);
+  if(s) { const u=upPct(s); return `<span class="up ${upCls(u)}" title="Average analyst target vs price">${fmtPct(u)}</span>`; }
+  return "";
+}
+
+function nmHTML(id){ return `<span class="cn">${esc(N[id].n)}</span>${WL[id]?'<span class="star" title="On your watchlist">★</span>':""}${pillHTML(id)}`; }
+function chip(id){
+  const d=N[id], b=document.createElement("button");
+  b.type="button"; b.className="chip"+(d.fut?" future":""); b.dataset.id=id;
+  b.innerHTML=`<span class="nm">${nmHTML(id)}</span><span class="ct">${esc(d.t)}</span>`;
+  b.setAttribute("aria-label", d.n+" — "+d.role);
+  b.addEventListener("click",()=>select(sel===id?null:id));
+  chipEl[id]=b; return b;
+}
+
+function build(){
+  LANES.forEach(L=>{
+    const lane=document.createElement("div"); lane.className="lane "+L.cls;
+    lane.innerHTML=`<div class="lanehead"><h2><span class="sw"></span>${L.name}</h2><p>${L.note}</p></div>`;
+    L.bands.forEach(B=>{
+      bandName[B.id]=B.label;
+      const band=document.createElement("div"); band.className="band"+(B.coal?" coal":"");
+      band.innerHTML=`<div class="bandhead"><h3>${B.label}</h3><p>${B.plain}</p></div><div class="chips"></div>`;
+      const box=band.querySelector(".chips");
+      Object.keys(N).filter(k=>N[k].b===B.id).forEach(k=>box.appendChild(chip(k)));
+      lane.appendChild(band);
+    });
+    map.appendChild(lane);
+  });
+  bandName.R="Build & rent capacity"; bandName.U="Buyer";
+  const r=document.createElement("div"); r.className="dcband";
+  r.innerHTML=`<div class="bandhead"><h3><span class="sw"></span>Build &amp; rent capacity</h3><p>Data center builders, GPU clouds and landlords that turn chips and power into capacity the buyers rent.</p></div><div class="chips"></div>`;
+  RBAND.forEach(k=>r.querySelector(".chips").appendChild(chip(k)));
+  map.appendChild(r);
+  const buy=document.createElement("div"); buy.className="buyers";
+  buy.innerHTML=`<div class="bandhead"><h3>Buy &amp; run AI</h3><p>The biggest AI compute buyers, where both chains end.</p></div><div class="chips"></div>`;
+  BUYERS.forEach(k=>buy.querySelector(".chips").appendChild(chip(k)));
+  map.appendChild(buy);
+
+  const pick=$("#pick");
+  BUYERS.forEach(k=>{
+    const b=document.createElement("button"); b.type="button"; b.textContent=N[k].n; b.dataset.id=k;
+    b.setAttribute("aria-pressed","false"); b.addEventListener("click",()=>select(k)); pick.appendChild(b);
+  });
+  const c=document.createElement("button"); c.type="button"; c.className="clear"; c.textContent="Show all links";
+  c.addEventListener("click",()=>select(null)); pick.appendChild(c);
+
+  const ol=$("#srclist");
+  Object.values(SRC).forEach(([t,u])=>{ const li=document.createElement("li"); const a=document.createElement("a"); a.href=u; a.target="_blank"; a.rel="noopener"; a.textContent=t; li.appendChild(a); ol.appendChild(li); });
+}
+
+let sel=null, onSet=new Set(), onEdges=new Set();
+function walk(start, dir){
+  const seen=new Set(), es=new Set(), stack=[start];
+  while(stack.length){ const id=stack.pop();
+    (dir==="up"?inc[id]:out[id]).forEach(i=>{ es.add(i); const nx=dir==="up"?E[i][0]:E[i][1]; if(!seen.has(nx)){seen.add(nx); stack.push(nx);} });
+  }
+  return [seen,es];
+}
+
+function select(id, scroll){
+  sel=id; onSet=new Set(); onEdges=new Set();
+  if(id){
+    onSet.add(id);
+    const [u,ue]=walk(id,"up"), [d,de]=walk(id,"down");
+    u.forEach(x=>onSet.add(x)); d.forEach(x=>onSet.add(x));
+    ue.forEach(x=>onEdges.add(x)); de.forEach(x=>onEdges.add(x));
+  }
+  map.classList.toggle("has-sel",!!id);
+  for(const k in chipEl){ chipEl[k].classList.toggle("on",onSet.has(k)); chipEl[k].classList.toggle("sel",k===id); chipEl[k].setAttribute("aria-pressed",k===id?"true":"false"); }
+  document.querySelectorAll("#pick button[data-id]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.id===id?"true":"false"));
+  draw(); renderInsp();
+  if(scroll && chipEl[id]) chipEl[id].scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth", block:"center"});
+}
+
+function rel(list, key){
+  if(!list.length) return `<p class="none">No public company-level links. ${key==="from"?"Supply comes through the industry tier above.":"Sells into the wider market."}</p>`;
+  return list.map(i=>{ const e=E[i], other=key==="from"?e[0]:e[1];
+    return `<button type="button" data-go="${other}"><b>${esc(N[other].n)}</b><span>${esc(e[3])}${e[2]==="p"?" · planned / ownership":""}</span></button>`; }).join("");
+}
+
+function rangeBar(s, mini){
+  const lo=Math.min(s.lo,s.px), hi=Math.max(s.hi,s.px), w=hi-lo||1;
+  const pos=v=>((v-lo)/w*100).toFixed(2)+"%";
+  const span=`left:${pos(s.lo)};width:${((s.hi-s.lo)/w*100).toFixed(2)}%`;
+  if(mini) return `<div class="minirb" aria-hidden="true"><div class="track"></div><div class="span" style="${span}"></div><div class="avg" style="left:${pos(s.avg)}"></div><div class="dot" style="left:${pos(s.px)}"></div></div>`;
+  return `<div class="rb" aria-label="Target range ${fmt$(s.lo,s.cur)} to ${fmt$(s.hi,s.cur)}, average ${fmt$(s.avg,s.cur)}, price ${fmt$(s.px,s.cur)}"><div class="track"></div><div class="span" style="${span}"></div><div class="avg" style="left:${pos(s.avg)}"></div><div class="dot" style="left:${pos(s.px)}"></div></div>
+  <div class="rbl"><span>low ${fmt$(s.lo,s.cur)}</span><span>avg ${fmt$(s.avg,s.cur)}</span><span>high ${fmt$(s.hi,s.cur)}</span></div>`;
+}
+
+function stockBlock(id){
+  const raw=S[id]; if(!raw) return "";
+  if(!okStock(raw)){
+    const go = raw.alias && S[raw.alias] && S[raw.alias].tk ? `<button type="button" data-go="${raw.alias==="sols"?"converdyn":raw.alias}" class="linkish" style="all:unset;cursor:pointer;color:var(--atom);text-decoration:underline">See ${esc(raw.alias==="sols"?"SOLS":S[raw.alias].tk)}</button>` : "";
+    if(raw.alias==="sols" && okStock(S.sols)){ return stockFull(S.sols, "converdyn", raw.via); }
+    return raw.via ? `<div class="stock"><h4 style="margin:0">Stock</h4><p class="priv">${esc(raw.via)} ${go}</p></div>` : "";
+  }
+  return stockFull(raw, id);
+}
+function stockFull(s, id, pre){
+  const u=upPct(s);
+  const pv=peOf(s);
+  const pe = pv!=null ? `about ${fmtPE(pv)}× ${s.fpe!=null?"forward":"next year's expected"} earnings` : (s.pen? `P/E not comparable (${s.pen})` : (s.auto? "no P/E available" : "not profitable yet, so no P/E"));
+  const rating = `${s.r?esc(s.r):"No consensus rating"}${s.n?` from ${s.n} analysts`:""}`;
+  const link = (LIVE.loaded || s.tk.includes(".")) ? `https://finance.yahoo.com/quote/${encodeURIComponent(s.tk)}` : `https://stockanalysis.com/stocks/${s.tk.toLowerCase()}/forecast/`;
+  return `<div class="stock">
+    <h4 style="margin:0">Stock</h4>
+    ${pre?`<p class="priv">${esc(pre)}</p>`:""}
+    <div class="row1"><span class="tk">${esc(s.tk)}</span><span class="px">${fmt$(s.px,s.cur)}</span><span class="dt">${esc(s.d||"Oct 2")} close${s.chg1d!=null?` · ${fmtChg(s.chg1d)} that day`:""}${s.stale?" · not updated today":""}</span></div>
+    <div class="tgt">Average analyst target <b>${fmt$(s.avg,s.cur)}</b>: <b class="${u>=0?"p":"n"}">${fmtPct(u)}</b></div>
+    ${rangeBar(s)}
+    <div class="meta">${rating} · ${pe}${s.risk?` · risk: <span class="risk r${s.risk}">${RISK[s.risk]}</span>`:""}${s.mv?` · ${esc(s.mv)}`:""}</div>
+    ${s.note?`<div class="meta">${esc(s.note)}</div>`:""}
+    ${s.bull?`<dl><div><dt>What could push it up</dt><dd>${esc(s.bull)}</dd></div><div><dt>What could hold it back</dt><dd>${esc(s.bear)}</dd></div><div><dt>Watch next</dt><dd>${esc(s.cat)}</dd></div></dl>`:""}
+    <div class="srcs"><a href="${link}" target="_blank" rel="noopener">${esc(s.tk)} quote and forecast</a></div>
+  </div>`;
+}
+
+let minimized=false;
+function renderInsp(){
+  if(!sel){
+    insp.innerHTML=`<div class="sheetbar"><span class="eyebrow">How to read this</span><button type="button" id="mintog">${minimized?"Expand":"Collapse"}</button></div>
+    <div class="body"><div class="eyebrow">How to read this</div><h2>Pick a company</h2>
+    <p class="role">Every faint line is a public deal, supply link or ownership stake. Tap a company to light up its chain and see its stock.</p>
+    <ul class="facts"><li>The pill on each company is the gap between its latest price and the average analyst target.</li><li>Companies without a pill are private, state-owned, or listed abroad; the panel says how to get exposure, if any.</li><li>Dashed boxes are reactors that aren't running yet.</li></ul></div>`;
+  } else {
+    const d=N[sel];
+    const lane=laneOf(sel), laneTxt = lane==="u"?"Buyer":lane==="dc"?"Data centers":lane==="power"?"Power chain":lane==="coal"?"Grid power":"Hardware chain";
+    const srcs=(d.s||[]).map(k=>`<a href="${SRC[k][1]}" target="_blank" rel="noopener">${esc(SRC[k][0].split(":")[0])}</a>`).join("");
+    insp.innerHTML=`<div class="sheetbar"><span class="eyebrow">${laneTxt} · ${bandName[d.b]}</span><button type="button" id="mintog">${minimized?"Expand":"Collapse"}</button></div>
+    <div class="body">
+      <div><div class="eyebrow">${laneTxt} · ${bandName[d.b]}${d.fut?" · not running yet":""}</div>
+      <h2>${esc(d.n)}</h2><div class="where">${esc(d.t)}</div></div>
+      <p class="role">${esc(d.role)}</p>
+      ${stockBlock(sel)}
+      ${wlBox(sel)}
+      ${d.f.length?`<ul class="facts">${d.f.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+      ${d.b!=="U"?`<div><h4>Sells or supplies to</h4><div class="rel">${rel(out[sel],"to")}</div></div>`:""}
+      <div><h4>Buys or gets from</h4><div class="rel">${rel(inc[sel],"from")}</div></div>
+      ${srcs?`<div><h4>Sources</h4><div class="srcs">${srcs}</div></div>`:""}
+    </div>`;
+  }
+  insp.classList.toggle("min",minimized);
+  const t=$("#mintog",insp); if(t) t.addEventListener("click",()=>{minimized=!minimized; renderInsp();});
+  insp.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>select(b.dataset.go)));
+  const tog=$("#wltog",insp); if(tog) tog.addEventListener("click",()=>{ if(WL[sel]) wlDelete(sel); else wlSave(sel,{}); });
+  const sv=$("#wlsave",insp); if(sv) sv.addEventListener("click",()=>{ const v=$("#wlbuy",insp).value.trim(); wlSave(sel,{buy_price: v===""?null:Number(v), notes: $("#wlnotes",insp).value}, true); });
+}
+
+const NS="http://www.w3.org/2000/svg";
+function draw(){
+  const m=map.getBoundingClientRect();
+  svg.setAttribute("viewBox",`0 0 ${m.width} ${m.height}`);
+  const cs=getComputedStyle(document.documentElement);
+  const col={power:cs.getPropertyValue("--atom").trim(), hw:cs.getPropertyValue("--si").trim(), coal:cs.getPropertyValue("--coal").trim(), dc:cs.getPropertyValue("--dc").trim()};
+  svg.replaceChildren();
+  const order=E.map((e,i)=>i).sort((a,b)=>(onEdges.has(a)?1:0)-(onEdges.has(b)?1:0));
+  order.forEach(i=>{
+    const [a,b,kind]=E[i];
+    const ra=chipEl[a].getBoundingClientRect(), rb=chipEl[b].getBoundingClientRect();
+    const ax=ra.left-m.left+ra.width/2, bx=rb.left-m.left+rb.width/2;
+    const aTop=ra.top-m.top, aBot=ra.bottom-m.top, bTop=rb.top-m.top, bBot=rb.bottom-m.top;
+    let d, end;
+    if(Math.abs(aTop-bTop)<8){
+      const left = ra.left<rb.left;
+      const x1= left? ra.right-m.left : ra.left-m.left, x2 = left? rb.left-m.left : rb.right-m.left;
+      const y=aTop+ra.height/2;
+      d=`M${x1} ${y} C${x1+(left?14:-14)} ${y-18}, ${x2+(left?-14:14)} ${y-18}, ${x2} ${y}`; end=[x2,y];
+    } else if(bTop>aBot){
+      const y1=aBot, y2=bTop, k=Math.max(24,(y2-y1)*.5);
+      d=`M${ax} ${y1} C${ax} ${y1+k}, ${bx} ${y2-k}, ${bx} ${y2}`; end=[bx,y2];
+    } else {
+      const y1=aTop, y2=bBot, k=Math.max(24,(y1-y2)*.5);
+      d=`M${ax} ${y1} C${ax} ${y1-k}, ${bx} ${y2+k}, ${bx} ${y2}`; end=[bx,y2];
+    }
+    const c=col[laneOf(a)==="u"?"power":laneOf(a)];
+    const p=document.createElementNS(NS,"path");
+    p.setAttribute("d",d); p.setAttribute("fill","none");
+    const on=onEdges.has(i);
+    p.setAttribute("stroke",c); p.setAttribute("stroke-width", on?2.2:1.2);
+    p.setAttribute("stroke-opacity", sel ? (on?.95:.06) : .28);
+    if(kind==="p") p.setAttribute("stroke-dasharray","5 4");
+    p.setAttribute("stroke-linecap","round");
+    svg.appendChild(p);
+    if(on){ const dot=document.createElementNS(NS,"circle"); dot.setAttribute("cx",end[0]); dot.setAttribute("cy",end[1]); dot.setAttribute("r",3.2); dot.setAttribute("fill",c); svg.appendChild(dot); }
+  });
+}
+
+/* upside table */
+let ROWS=[];
+S.sols.node="converdyn"; S.sols.name="Solstice Advanced Materials"; S.sols.link="Owns ConverDyn conversion plant"; S.sols.grp="Fuel";
+function makeRows(){ ROWS = Object.keys(S).filter(k=>okStock(S[k]) && (N[k] || S[k].node)).map(k=>{
+  const s=S[k], node = s.node || k;
+  return {id:node, s, name: s.name || N[k].n, link: s.link || (bandName[N[node].b]||""), grp: s.grp || grpOf(node), up:upPct(s)};
+}); }
+let sortKey="up", grpF="All";
+function renderTable(){
+  const tb=$("#tbl tbody");
+  let rows=ROWS.filter(r=>grpF==="All"||(grpF==="My watchlist"? !!WL[r.id] : r.grp===grpF));
+  const curD = LIVE.loaded? LIVE.dshort : "Oct 2";
+  rows.sort((a,b)=>{
+    if(sortKey==="name") return a.name.localeCompare(b.name);
+    if(sortKey==="px") return b.s.px-a.s.px;
+    if(sortKey==="pe"){ const A=peOf(a.s)??1e9, B=peOf(b.s)??1e9; return A-B; }
+    return b.up-a.up;
+  });
+  tb.innerHTML=rows.map(r=>`<tr data-id="${r.id}" tabindex="0">
+    <td><div class="co">${WL[r.id]&&!r.s.node?'<span class="star">★</span> ':""}${esc(r.name)}</div><div class="tkc">${esc(r.s.tk)}</div></td>
+    <td><div class="lk">${esc(r.grp)} · ${esc(r.link)}</div></td>
+    <td class="r num">${fmt$(r.s.px,r.s.cur)}${(r.s.d&&r.s.d!==curD)||r.s.stale?`<div class="stale">${esc(r.s.stale?"not updated":r.s.d)}</div>`:""}</td>
+    <td class="r num">${fmt$(r.s.avg,r.s.cur)}</td>
+    <td class="r"><span class="up ${upCls(r.up)}">${fmtPct(r.up)}</span></td>
+    <td>${rangeBar(r.s,true)}</td>
+    <td class="r num">${peOf(r.s)!=null? fmtPE(peOf(r.s))+"×" : `<span style="color:var(--muted)">n/m</span>`}</td>
+    <td><span style="font-size:13px">${esc(r.s.r||"—")}</span> ${r.s.n?`<span class="tkc">(${r.s.n})</span>`:""}</td>
+    <td>${r.s.risk?`<span class="risk r${r.s.risk}">${RISK[r.s.risk]}</span>`:`<span class="tkc">—</span>`}</td>
+  </tr>`).join("");
+  tb.querySelectorAll("tr").forEach(tr=>{
+    const go=()=>{ select(tr.dataset.id,true); };
+    tr.addEventListener("click",go);
+    tr.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); } });
+  });
+  document.querySelectorAll("#tbl th button").forEach(b=>{ if(b.dataset.sort===sortKey) b.setAttribute("aria-sort","descending"); else b.removeAttribute("aria-sort"); });
+}
+function buildFilters(){
+  const f=$("#filters");
+  ["All","Fuel","Power producers","Gas & utilities","Chips & gear","Network & optics","Materials","Data centers","Space & AI labs","Buyers","Coal"].forEach(g=>{
+    const b=document.createElement("button"); b.type="button"; b.textContent=g; b.setAttribute("aria-pressed",g===grpF?"true":"false");
+    b.addEventListener("click",()=>{ grpF=g; f.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false")); renderTable(); });
+    f.appendChild(b);
+  });
+  const w=document.createElement("button"); w.type="button"; w.id="wlfilter"; w.textContent="★ My watchlist"; w.hidden=true; w.setAttribute("aria-pressed","false");
+  w.addEventListener("click",()=>{ grpF="My watchlist"; f.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===w?"true":"false")); renderTable(); });
+  f.appendChild(w);
+  document.querySelectorAll("#tbl th button").forEach(b=>b.addEventListener("click",()=>{ sortKey=b.dataset.sort; renderTable(); }));
+}
+function buildThemes(){
+  $("#themes").innerHTML=THEMES.map(th=>{
+    const ups=th.ids.map(id=>okStock(S[id])?upPct(S[id]):null).filter(v=>v!=null);
+    const rng = ups.length? `${fmtPct(Math.min(...ups))} to ${fmtPct(Math.max(...ups))}` : "";
+    const tks=th.ids.map(id=>{ const s=S[id]; const ok=okStock(s); const node= (s&&s.node)||id; const label = s&&s.tk? s.tk : N[id].n;
+      return `<button type="button" data-go="${node}">${esc(label)} ${ok?`<span class="up ${upCls(upPct(s))}">${fmtPct(upPct(s))}</span>`:""}</button>`; }).join("");
+    return `<article class="theme"><div class="hd"><h3>${esc(th.t)}</h3><span class="risk r${th.risk}">${RISK[th.risk]} risk</span></div>
+      <div class="tks">${tks}</div>
+      <p><b>Analyst upside ${rng}.</b> ${esc(th.why)}</p>
+      <p class="watch">Watch: ${esc(th.watch)}</p></article>`;
+  }).join("");
+  $("#themes").querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>select(b.dataset.go,true)));
+}
+
+/* ---------- web app: daily data ---------- */
+async function loadLive(){
+  let data;
+  try{ const r=await fetch("data/stocks.json",{cache:"no-store"}); if(!r.ok) return; data=await r.json(); }catch(e){ return; }
+  if(!data || !data.stocks) return;
+  LIVE.loaded=true; LIVE.data=data; LIVE.dshort=data.asof_short||data.asof;
+  for(const [id,q] of Object.entries(data.stocks)){
+    if(!q || !(q.px>0)) continue;
+    let st=S[id];
+    if(!st || !st.tk){ st = S[id] = Object.assign({}, st||{}, {tk:q.symbol, auto:true}); delete st.via; delete st.alias; }
+    st.px=q.px; st.d=q.stale? (q.date_short||st.d) : LIVE.dshort; st.cur=q.currency||st.cur; st.stale=!!q.stale;
+    st.chg1d = q.chg1d!=null? q.chg1d : null;
+    if(q.avg>0){ st.avg=q.avg; if(q.lo>0) st.lo=q.lo; if(q.hi>0) st.hi=q.hi; }
+    if(q.n) st.n=q.n;
+    if(q.rating) st.r=q.rating;
+    st.fpe = q.fpe>0? q.fpe : null;
+    if(st.lo==null||st.hi==null){ st.lo=st.lo??st.avg; st.hi=st.hi??st.avg; }
+  }
+  const k=$(".kicker"); if(k) k.textContent=`AI data centers · supply chains & stocks · prices updated ${data.asof_label||data.asof}`;
+  const nt=$("#notice"); if(nt) nt.textContent=`Research, not advice. Prices and analyst targets refresh every morning at 6am Pacific from ${data.source||"Yahoo Finance"}. The green pills show the gap between the latest price and the average Wall Street 12-month target. Targets are often too optimistic and move with the stock, so treat them as one input, not a forecast. The written company notes are a snapshot from October 2026.`;
+  refreshAll();
+}
+function refreshAll(){
+  for(const k in chipEl){ const nm=chipEl[k].querySelector(".nm"); if(nm) nm.innerHTML=nmHTML(k); }
+  makeRows(); renderTable(); buildThemes(); renderInsp(); renderToday(); draw();
+}
+function liItem(id, sym, val, cls, extra, name){
+  const go=(S[id]&&S[id].node)||id, nm=name||(S[id]&&S[id].name)||(N[go]?N[go].n:sym);
+  return `<li><button type="button" data-go="${go}"><span>${esc(nm)} <span class="tkc">${esc(sym)}</span>${extra?` <span class="tkc">${esc(extra)}</span>`:""}</span><span class="v ${cls}">${val}</span></button></li>`;
+}
+function renderToday(){
+  const sec=$("#today"); if(!LIVE.loaded){ sec.hidden=true; return; }
+  sec.hidden=false;
+  const data=LIVE.data, ch=data.changes||{};
+  $("#todaySub").textContent = `Moves in the last trading session and analyst changes since the previous update${ch.prev_asof_label?` (${ch.prev_asof_label})`:""}. Updated ${data.asof_label||data.asof}.`;
+  const movers=ROWS.filter(r=>r.s.chg1d!=null && !r.s.stale);
+  const ups=movers.filter(r=>r.s.chg1d>0).sort((a,b)=>b.s.chg1d-a.s.chg1d).slice(0,6);
+  const downs=movers.filter(r=>r.s.chg1d<0).sort((a,b)=>a.s.chg1d-b.s.chg1d).slice(0,6);
+  $("#tUp").innerHTML = ups.length? ups.map(r=>liItem(r.id,r.s.tk,fmtChg(r.s.chg1d),"p","",r.name)).join("") : `<li class="empty">No gainers in the last session.</li>`;
+  $("#tDown").innerHTML = downs.length? downs.map(r=>liItem(r.id,r.s.tk,fmtChg(r.s.chg1d),"n","",r.name)).join("") : `<li class="empty">No decliners in the last session.</li>`;
+  const tg=(ch.targets||[]).map(t=>liItem(t.id,t.symbol,`${fmt$(t.old,t.currency)} → ${fmt$(t.new,t.currency)}`, t.new>=t.old?"p":"n","avg target"));
+  const rt=(ch.ratings||[]).map(t=>liItem(t.id,t.symbol,`${esc(t.old||"—")} → ${esc(t.new||"—")}`, "", "rating"));
+  const all=tg.concat(rt);
+  $("#tTgt").innerHTML = all.length? all.slice(0,10).join("") : `<li class="empty">No analyst target or rating changes since the last update.</li>`;
+  const wlIds=Object.keys(WL);
+  $("#tWLcol").hidden = !(user && wlIds.length);
+  if(user && wlIds.length){
+    $("#tWL").innerHTML = wlIds.map(id=>{ const s2=stockOf(id); if(!s2) return liItem(id,"",'—',""); const w=WL[id];
+      const gap = w.buy_price>0 ? `${((s2.px/w.buy_price-1)*100).toFixed(0)}% above buy price` : "";
+      return liItem(id, s2.tk, s2.chg1d!=null? fmtChg(s2.chg1d) : fmt$(s2.px,s2.cur), s2.chg1d>=0?"p":"n", s2.px<=w.buy_price? "at or below your buy price" : gap); }).join("");
+  }
+  sec.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>select(b.dataset.go,true)));
+}
+
+/* ---------- web app: watchlist & notes (Supabase) ---------- */
+let sb=null, user=null, WL={};
+function loadScript(src){ return new Promise((res,rej)=>{ const el=document.createElement("script"); el.src=src; el.onload=res; el.onerror=rej; document.head.appendChild(el); }); }
+async function initWatchlist(){
+  if(!APP.supabaseUrl || !APP.supabaseAnonKey) return;
+  try{ await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"); }catch(e){ return; }
+  sb = window.supabase.createClient(APP.supabaseUrl, APP.supabaseAnonKey);
+  const {data} = await sb.auth.getSession(); user = data && data.session ? data.session.user : null;
+  sb.auth.onAuthStateChange((_e,sess)=>{ const before=user&&user.id; user=sess?sess.user:null; if((user&&user.id)!==before) refreshWL(); });
+  await refreshWL();
+}
+async function refreshWL(){
+  WL={};
+  if(user){ const {data,error}=await sb.from("watchlist").select("*"); if(!error && data) data.forEach(r=>{ WL[r.company_id]=r; }); }
+  renderAuth();
+  const w=$("#wlfilter"); if(w) w.hidden=!user;
+  if(!user && grpF==="My watchlist") grpF="All";
+  refreshAll();
+}
+function renderAuth(){
+  const bar=$("#authbar"); if(!sb){ bar.hidden=true; return; } bar.hidden=false;
+  if(!user){
+    bar.innerHTML=`<form id="authform"><label for="authemail">Watchlist</label><input id="authemail" type="email" required placeholder="you@example.com" autocomplete="email"><button type="submit">Email me a sign-in link</button><span id="authmsg" class="authmsg" role="status"></span></form>`;
+    $("#authform").addEventListener("submit", async e=>{ e.preventDefault(); const email=$("#authemail").value.trim(); const msg=$("#authmsg"); msg.textContent="Sending…";
+      const {error}=await sb.auth.signInWithOtp({email, options:{emailRedirectTo: location.origin+location.pathname}});
+      msg.textContent = error? `Couldn't send the link: ${error.message}` : "Check your email for the sign-in link."; });
+  } else {
+    bar.innerHTML=`<span>★ ${Object.keys(WL).length} on your watchlist · ${esc(user.email||"")}</span><button type="button" id="signout">Sign out</button>`;
+    $("#signout").addEventListener("click", async()=>{ await sb.auth.signOut(); user=null; refreshWL(); });
+  }
+}
+function wlBox(id){
+  if(!sb) return "";
+  if(!user) return `<div class="wl"><h4>Watchlist</h4><p class="priv">Sign in at the top of the page to save this company with a buy price and notes.</p></div>`;
+  const r=WL[id], st=stockOf(id);
+  return `<div class="wl"><h4>Watchlist</h4>
+    <button type="button" class="wltog" id="wltog" aria-pressed="${r?"true":"false"}">${r?"★ On your watchlist":"☆ Add to watchlist"}</button>
+    ${r?`<label for="wlbuy">Telegram me when the price is at or below</label>
+    <input id="wlbuy" type="number" step="0.01" min="0" inputmode="decimal" value="${r.buy_price??""}" placeholder="${st?st.px.toFixed(2):"price"}">
+    <label for="wlnotes">Notes</label><textarea id="wlnotes" rows="3">${esc(r.notes||"")}</textarea>
+    <div class="wlrow"><button type="button" id="wlsave">Save</button><span id="wlmsg" class="authmsg" role="status"></span></div>`:""}
+  </div>`;
+}
+async function wlSave(id, patch, showMsg){
+  const st=stockOf(id), prev=WL[id];
+  const row=Object.assign({user_id:user.id, company_id:id, ticker: st?st.tk:null}, prev?{buy_price:prev.buy_price, notes:prev.notes}:{}, patch, {updated_at:new Date().toISOString()});
+  if(prev && ("buy_price" in patch) && patch.buy_price!==prev.buy_price) row.alerted_on=null;
+  const {data,error}=await sb.from("watchlist").upsert(row,{onConflict:"user_id,company_id"}).select().single();
+  if(error){ const m=$("#wlmsg",insp); if(m) m.textContent=`Couldn't save: ${error.message}`; return; }
+  WL[id]=data; renderAuth(); refreshAll();
+  if(showMsg){ const m=$("#wlmsg",insp); if(m) m.textContent="Saved"; }
+}
+async function wlDelete(id){
+  const {error}=await sb.from("watchlist").delete().eq("company_id",id);
+  if(!error){ delete WL[id]; renderAuth(); refreshAll(); }
+}
+
+build();
+makeRows(); buildFilters(); renderTable(); buildThemes();
+document.querySelectorAll("#labs [data-go]").forEach(b=>b.addEventListener("click",()=>select(b.dataset.go,true)));
+let start="amazon";
+try{ const h=location.hash.slice(1); if(N[h]) start=h; }catch(e){}
+select(start);
+if(APP.app){ loadLive().then(initWatchlist); }
+const ro=new ResizeObserver(()=>draw()); ro.observe(map);
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+const mq=matchMedia("(prefers-color-scheme: dark)"); mq.addEventListener && mq.addEventListener("change",draw);
+new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+</script>
+
+</body>
+</html>
