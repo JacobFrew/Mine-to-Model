@@ -258,5 +258,81 @@
  "schneider": {
   "symbol": "SU.PA",
   "yahoo": "SU.PA"
+ },
+ "ionq": {
+  "symbol": "IONQ",
+  "yahoo": "IONQ"
+ },
+ "rigetti": {
+  "symbol": "RGTI",
+  "yahoo": "RGTI"
+ },
+ "dwave": {
+  "symbol": "QBTS",
+  "yahoo": "QBTS"
+ },
+ "qci": {
+  "symbol": "QUBT",
+  "yahoo": "QUBT"
+ },
+ "infleqtion": {
+  "symbol": "INFQ",
+  "yahoo": "INFQ"
+ },
+ "xanadu": {
+  "symbol": "XNDU",
+  "yahoo": "XNDU"
+ },
+ "horizonq": {
+  "symbol": "HQ",
+  "yahoo": "HQ"
+ },
+ "quantinuum": {
+  "symbol": "QNT",
+  "yahoo": "QNT"
+ },
+ "iqm": {
+  "symbol": "IQMX",
+  "yahoo": "IQMX"
+ },
+ "ibm": {
+  "symbol": "IBM",
+  "yahoo": "IBM"
+ },
+ "honeywell": {
+  "symbol": "HON",
+  "yahoo": "HON"
+ },
+ "keysight": {
+  "symbol": "KEYS",
+  "yahoo": "KEYS"
+ },
+ "gfs": {
+  "symbol": "GFS",
+  "yahoo": "GFS"
+ },
+ "sealsq": {
+  "symbol": "LAES",
+  "yahoo": "LAES"
+ },
+ "arqit": {
+  "symbol": "ARQQ",
+  "yahoo": "ARQQ"
+ },
+ "oxinst": {
+  "symbol": "OXIG",
+  "yahoo": "OXIG.L"
+ },
+ "intel": {
+  "symbol": "INTC",
+  "yahoo": "INTC"
+ },
+ "formfactor": {
+  "symbol": "FORM",
+  "yahoo": "FORM"
+ },
+ "qtum": {
+  "symbol": "QTUM",
+  "yahoo": "QTUM"
  }
 }
