@@ -1,0 +1,1527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Interactive map of the quantum computing supply chain: who supplies whom, who's leading, public stocks with analyst targets, and which private companies may go public.">
+<title>Fridge to Qubit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: two supply lanes (uranium → reactor, silicon → rack) feed a full-width band of data center builders, then the buyers; an inspector shows the selected company's role and stock; below, an upside table and themes. */
+:root{
+  --bg:#EDF1F4; --surface:#FFFFFF; --band:#E2E8ED; --ink:#13202B; --muted:#52606C; --rule:#C7D1D9;
+  --atom:#1D5CF0; --atom-soft:#DCE5FD; --si:#9A620C; --si-soft:#F4E5C8; --coal:#5B5550; --coal-soft:#E3DFDA;
+  --dc:#5B4BC4; --dc-soft:#E6E2FA;
+  --pos:#137A4A; --pos-soft:#D3EEDF; --neg:#B83A26; --neg-soft:#F6DCD6; --flat:#DDE3E8;
+  --dim:.32;
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D141A; --surface:#151F28; --band:#1A2631; --ink:#E5ECF2; --muted:#92A2AF; --rule:#2B3946;
+  --atom:#7099FF; --atom-soft:#1B2A4C; --si:#E2A64C; --si-soft:#3A2C15; --coal:#B8AFA6; --coal-soft:#2B2825;
+  --dc:#A99CFF; --dc-soft:#272347;
+  --pos:#4CC38A; --pos-soft:#163527; --neg:#F07A66; --neg-soft:#3D1F1A; --flat:#26323D;
+  --dim:.28; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0D141A; --surface:#151F28; --band:#1A2631; --ink:#E5ECF2; --muted:#92A2AF; --rule:#2B3946;
+  --atom:#7099FF; --atom-soft:#1B2A4C; --si:#E2A64C; --si-soft:#3A2C15; --coal:#B8AFA6; --coal-soft:#2B2825;
+  --dc:#A99CFF; --dc-soft:#272347;
+  --pos:#4CC38A; --pos-soft:#163527; --neg:#F07A66; --neg-soft:#3D1F1A; --flat:#26323D;
+  --dim:.28; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55}
+.wrap{max-width:1360px;margin:0 auto;padding-inline:20px;padding-block:28px 64px}
+h1,h2,h3{font-family:var(--display);font-stretch:78%;text-wrap:balance;margin:0;line-height:1.05}
+a{color:var(--atom)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--atom);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* page nav */
+.pages{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.pages a{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;color:var(--muted);border:1px solid var(--rule);border-radius:999px;padding:4px 12px;background:var(--surface)}
+.pages a:hover{color:var(--ink);border-color:var(--ink)}
+.pages a[aria-current="page"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* header */
+.top{display:grid;gap:14px;max-width:900px}
+.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:clamp(2.4rem,6vw,4rem);font-weight:800;letter-spacing:-.01em}
+.lede{margin:0;max-width:68ch;color:var(--muted);font-size:16px}
+.lede b{color:var(--ink);font-weight:600}
+.fuelpath{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.fuelpath span{background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:3px 7px;white-space:nowrap}
+.fuelpath i{font-style:normal;color:var(--atom)}
+.notice{margin-top:4px;font-size:13px;color:var(--muted);border-left:3px solid var(--rule);padding:2px 0 2px 10px;max-width:80ch}
+
+/* setup strip */
+.setup{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px;margin-top:22px}
+.setup div{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;display:grid;gap:4px;align-content:start}
+.setup b{font-family:var(--display);font-stretch:75%;font-size:1.7rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.setup span{font-size:13px;color:var(--muted)}
+
+.controls{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:center;margin-top:24px;padding-block:14px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.pick{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pick .lbl{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-right:4px}
+.pick button{border:1px solid var(--ink);background:transparent;border-radius:999px;padding:5px 13px;cursor:pointer;font-weight:600;font-size:14px}
+.pick button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.pick button.clear{border-color:var(--rule);font-weight:500;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend svg{flex:none}
+.legend .fut{width:22px;height:14px;border:1.5px dashed var(--muted);border-radius:3px}
+
+/* upside pill */
+.up{font-family:var(--mono);font-size:10.5px;font-weight:500;border-radius:3px;padding:0 4px;line-height:1.5;white-space:nowrap;font-variant-numeric:tabular-nums}
+.up.hi{background:var(--pos);color:var(--bg)}
+.up.mid{background:var(--pos-soft);color:var(--pos)}
+.up.lo{background:var(--flat);color:var(--ink)}
+.up.neg{background:var(--neg-soft);color:var(--neg)}
+.up.pv{background:transparent;color:var(--muted);border:1px solid var(--rule)}
+
+/* main grid */
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;margin-top:22px;align-items:start}
+.map{position:relative;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;min-width:0}
+.map svg.links{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:visible}
+.lane{display:grid;gap:8px;align-content:start;min-width:0}
+.lanehead{display:grid;gap:4px;padding-bottom:4px}
+.lanehead h2{font-size:1.45rem;font-weight:750;display:flex;gap:9px;align-items:center}
+.lanehead h2 .sw{width:12px;height:12px;border-radius:50%;flex:none}
+.lane.power .sw{background:var(--atom)} .lane.hw .sw{background:var(--si)}
+.lanehead p{margin:0;font-size:13px;color:var(--muted);max-width:60ch}
+.band{background:var(--band);border-radius:8px;padding:10px 12px 12px;display:grid;gap:8px}
+.bandhead{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.bandhead h3{font-size:1.02rem;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.bandhead p{margin:0;font-size:12.5px;color:var(--muted);flex:1 1 220px;min-width:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{position:relative;z-index:2;display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;cursor:pointer;
+  background:var(--surface);border:1.5px solid var(--rule);border-radius:6px;padding:5px 9px 6px;min-width:0;transition:opacity .2s,border-color .2s,background .2s}
+.chip .nm{display:flex;gap:6px;align-items:center}
+.chip .cn{font-weight:600;font-size:13.5px;line-height:1.2}
+.chip .ct{font-family:var(--mono);font-size:10.5px;color:var(--muted);line-height:1.3}
+.chip.future{border-style:dashed}
+.chip:hover{border-color:var(--ink)}
+.map.has-sel .chip:not(.on){opacity:var(--dim)}
+.lane.power .chip.on{border-color:var(--atom);background:var(--atom-soft)}
+.lane.hw .chip.on{border-color:var(--si);background:var(--si-soft)}
+.band.coal .chip.on{border-color:var(--coal);background:var(--coal-soft)}
+.dcband .chip.on{border-color:var(--dc);background:var(--dc-soft)}
+.chip.sel{box-shadow:0 0 0 3px var(--ink)}
+.band.coal{background:var(--coal-soft)}
+.dcband{grid-column:1/-1;background:var(--dc-soft);border-radius:8px;padding:12px 14px 14px;display:grid;gap:8px}
+.dcband .bandhead h3 .sw{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--dc);margin-right:8px;vertical-align:-1px}
+.buyers{grid-column:1/-1;background:var(--ink);color:var(--bg);border-radius:8px;padding:12px 14px 14px;display:grid;gap:10px}
+.buyers .bandhead p{color:inherit;opacity:.75}
+.buyers .chips{gap:10px}
+.buyers .chip{background:var(--bg);border-color:var(--bg);color:var(--ink);padding:8px 14px 9px}
+.buyers .chip .cn{font-family:var(--display);font-stretch:80%;font-size:1.15rem;font-weight:750}
+.buyers .chip.on{background:var(--bg);border-color:var(--atom)}
+.buyers .chip.sel{box-shadow:0 0 0 3px var(--atom)}
+
+/* inspector */
+.inspector{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:18px 18px 20px;display:grid;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.inspector h2{font-size:1.9rem;font-weight:780}
+.inspector .where{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:4px}
+.inspector .role{margin:0;font-size:15px;font-weight:500}
+.inspector ul.facts{margin:0;padding-left:18px;display:grid;gap:6px;font-size:14px}
+.inspector h4{margin:0 0 6px;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.rel{display:grid;gap:6px}
+.rel button{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;text-align:left;background:var(--bg);border:1px solid var(--rule);border-radius:6px;padding:6px 9px;cursor:pointer;font-size:13.5px}
+.rel button:hover{border-color:var(--ink)}
+.rel button b{font-weight:600}
+.rel button span{grid-column:1/-1;color:var(--muted);font-size:12.5px}
+.rel .none{font-size:13px;color:var(--muted);margin:0}
+.srcs{font-size:12.5px;display:flex;flex-wrap:wrap;gap:4px 12px}
+.sheetbar{display:none}
+.body{display:grid;gap:12px}
+
+.stock{border:1px solid var(--rule);border-radius:8px;padding:12px;display:grid;gap:9px;background:var(--bg)}
+.stock .row1{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.stock .tk{font-family:var(--mono);font-size:12px;font-weight:500}
+.stock .px{font-family:var(--display);font-stretch:80%;font-size:1.6rem;font-weight:780;font-variant-numeric:tabular-nums}
+.stock .dt{font-size:12px;color:var(--muted)}
+.stock .tgt{font-size:14px}
+.stock .tgt b.p{color:var(--pos)} .stock .tgt b.n{color:var(--neg)}
+.stock .meta{font-size:12.5px;color:var(--muted)}
+.stock dl{margin:0;display:grid;gap:6px;font-size:13.5px}
+.stock dt{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stock dd{margin:0 0 4px}
+.stock .priv{font-size:13.5px;margin:0}
+
+/* range bar */
+.rb{position:relative;height:30px}
+.rb .track{position:absolute;left:0;right:0;top:12px;height:6px;border-radius:3px;background:var(--flat)}
+.rb .span{position:absolute;top:12px;height:6px;border-radius:3px;background:var(--pos-soft);border:1px solid var(--pos)}
+.rb .avg{position:absolute;top:7px;width:2px;height:16px;background:var(--pos)}
+.rb .dot{position:absolute;top:10px;width:10px;height:10px;border-radius:50%;background:var(--ink);border:2px solid var(--surface);transform:translateX(-5px)}
+.rb .lab{position:absolute;top:21px;font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap}
+.rbl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:-4px}
+
+/* upside section */
+section.block{margin-top:56px}
+section.block>h2{font-size:2rem;font-weight:780}
+section.block>p.sub{margin:8px 0 0;color:var(--muted);max-width:72ch}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.filters button{border:1px solid var(--rule);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:13.5px;cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tablewrap{overflow-x:auto;margin-top:14px;border:1px solid var(--rule);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:860px;font-size:14px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:middle}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;background:var(--surface);position:sticky;top:0}
+th button{all:unset;cursor:pointer;color:inherit}
+th button:focus-visible{outline:2px solid var(--atom)}
+th button[aria-sort]::after{content:" ↓"}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--bg)}
+tbody tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+td .co{font-weight:600}
+td .tkc{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+td .lk{font-size:12.5px;color:var(--muted)}
+td .stale{font-size:11px;color:var(--neg)}
+.minirb{position:relative;width:150px;height:14px}
+.minirb .track{position:absolute;left:0;right:0;top:6px;height:3px;background:var(--flat);border-radius:2px}
+.minirb .span{position:absolute;top:5px;height:5px;background:var(--pos-soft);border:1px solid var(--pos);border-radius:2px}
+.minirb .avg{position:absolute;top:2px;width:2px;height:11px;background:var(--pos)}
+.minirb .dot{position:absolute;top:3px;width:8px;height:8px;border-radius:50%;background:var(--ink);transform:translateX(-4px)}
+.risk{font-family:var(--mono);font-size:11px;border-radius:3px;padding:1px 6px;white-space:nowrap}
+.risk.r1{background:var(--pos-soft);color:var(--pos)}
+.risk.r2{background:var(--flat);color:var(--ink)}
+.risk.r3{background:var(--neg-soft);color:var(--neg)}
+.risk.r4{background:var(--neg);color:var(--bg)}
+
+.themes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:14px;margin-top:20px}
+.theme{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px 18px 18px;display:grid;gap:10px;align-content:start}
+.theme .hd{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.theme h3{font-size:1.35rem;font-weight:760}
+.theme .tks{display:flex;flex-wrap:wrap;gap:6px}
+.theme .tks button{font-family:var(--mono);font-size:12px;border:1px solid var(--rule);background:var(--bg);border-radius:4px;padding:2px 7px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.theme p{margin:0;font-size:14px}
+.theme p.watch{color:var(--muted);font-size:13.5px}
+.theme p b{font-weight:600}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:14px;margin-top:20px}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px 18px 18px;display:grid;gap:8px;align-content:start}
+.card .fig{font-family:var(--display);font-stretch:75%;font-weight:800;font-size:2.6rem;line-height:1;font-variant-numeric:tabular-nums}
+.card.p .fig{color:var(--atom)} .card.h .fig{color:var(--si)} .card.c .fig{color:var(--coal)}
+.card h3{font-family:var(--body);font-stretch:100%;font-size:15px;font-weight:600;line-height:1.3}
+.card p{margin:0;font-size:14px;color:var(--muted)}
+.sources ol{margin:14px 0 0;padding-left:22px;columns:2 340px;column-gap:32px;font-size:13px}
+.sources li{break-inside:avoid;margin-bottom:5px}
+.foot{margin-top:24px;font-size:13px;color:var(--muted);max-width:76ch}
+
+.labs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;margin-top:20px}
+.lab{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:18px 20px 20px;display:grid;gap:14px;align-content:start}
+.lab .hd{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.lab h3{font-size:2rem;font-weight:800}
+.lab .tag{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.lab .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.lab .stats div{border-top:2px solid var(--dc);padding-top:6px;display:grid;gap:2px}
+.lab .stats b{font-family:var(--display);font-stretch:75%;font-size:1.6rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.lab .stats span{font-size:12.5px;color:var(--muted)}
+.lab h4{margin:0 0 6px;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.lab ul{margin:0;padding-left:18px;display:grid;gap:5px;font-size:14px}
+.lab .own{display:grid;gap:6px}
+.lab .own button{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:baseline;text-align:left;background:var(--bg);border:1px solid var(--rule);border-radius:6px;padding:7px 10px;cursor:pointer;font-size:13.5px}
+.lab .own button:hover{border-color:var(--ink)}
+.lab .own button b{font-family:var(--mono);font-size:12.5px}
+.lab .own button span.d{color:var(--muted);font-size:13px}
+.lab p.disc{margin:0;font-size:12.5px;color:var(--muted)}
+
+.today{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;margin-top:16px}
+.tcol{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:12px 14px 14px;display:grid;gap:8px;align-content:start}
+.tcol h4{margin:0;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.tcol ol{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.tcol li button{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:10px;width:100%;font-size:14px;padding:3px 0;border-bottom:1px solid var(--rule)}
+.tcol li button:focus-visible{outline:2px solid var(--atom)}
+.tcol li .tkc{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.tcol li .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
+.tcol li .v.p{color:var(--pos)} .tcol li .v.n{color:var(--neg)}
+.tcol .empty{font-size:13px;color:var(--muted);margin:0}
+.authbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:13.5px;margin-left:auto}
+.authbar form{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.authbar label{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.authbar input{font:inherit;padding:5px 9px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);min-width:0;width:220px;max-width:100%}
+.authbar button,.wl button{font:inherit;font-size:13.5px;border:1px solid var(--ink);background:transparent;border-radius:999px;padding:4px 12px;cursor:pointer}
+.authmsg{font-size:12.5px;color:var(--muted)}
+.star{color:var(--si);font-size:12px;line-height:1}
+.wl{border:1px solid var(--rule);border-radius:8px;padding:12px;display:grid;gap:8px;background:var(--bg)}
+.wl h4{margin:0}
+.wl label{font-size:12.5px;color:var(--muted)}
+.wl input,.wl textarea{font:inherit;font-size:14px;padding:6px 9px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);width:100%}
+.wl .wltog[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.wlrow{display:flex;gap:10px;align-items:center}
+
+@media (max-width:1079px){
+  .stage{grid-template-columns:minmax(0,1fr)}
+  .wrap{padding-bottom:44vh}
+  .inspector{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:30;border-radius:14px 14px 0 0;border-bottom:0;
+    max-height:42vh;padding:12px 18px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+  .inspector.min{max-height:none;overflow:hidden}
+  .inspector.min .body{display:none}
+  .sheetbar{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .sheetbar button{border:1px solid var(--rule);background:var(--bg);border-radius:999px;padding:3px 11px;font-size:12.5px;cursor:pointer}
+  .inspector h2{font-size:1.5rem}
+}
+@media (max-width:760px){
+  .map{grid-template-columns:minmax(0,1fr)}
+  .wrap{padding-inline:16px}
+}
+@media (prefers-reduced-motion:reduce){.chip{transition:none}}
+
+/* quantum page additions */
+.explain{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px;margin-top:20px}
+.ex{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px 18px 18px;display:grid;gap:8px;align-content:start}
+.ex .exn{font-family:var(--mono);font-size:12px;color:var(--atom);border:1px solid var(--atom);border-radius:999px;width:24px;height:24px;display:grid;place-items:center}
+.ex h3{font-size:1.3rem;font-weight:760}
+.ex p{margin:0;font-size:14px;color:var(--muted)}
+.usegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:14px;margin-top:14px}
+.use{border-radius:10px;padding:16px 18px 18px;display:grid;gap:8px;align-content:start;border:1px solid var(--rule)}
+.use.good{background:var(--pos-soft);border-color:var(--pos)}
+.use.bad{background:var(--neg-soft);border-color:var(--neg)}
+.use h3{font-size:1.3rem;font-weight:760}
+.use ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:14px}
+table.qtable{min-width:760px}
+table.qtable td{vertical-align:top;font-size:13.5px}
+table.qtable tbody tr{cursor:default}
+table.qtable tbody tr.go{cursor:pointer}
+.odds{font-family:var(--mono);font-size:11.5px;border-radius:3px;padding:2px 7px;white-space:nowrap;display:inline-block}
+.odds.o4{background:var(--pos);color:var(--bg)}
+.odds.o3{background:var(--pos-soft);color:var(--pos)}
+.odds.o2{background:var(--si-soft);color:var(--si)}
+.odds.o1{background:var(--flat);color:var(--muted)}
+button.card{font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+button.card:hover{border-color:var(--ink)}
+.card.lead .fig{color:var(--si)}
+.timeline{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:0;border-left:2px solid var(--rule);margin-left:8px}
+.timeline>li{position:relative;padding:0 0 18px 22px;display:grid;grid-template-columns:70px 1fr;gap:4px 14px}
+.timeline>li::before{content:"";position:absolute;left:-7px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--si);border:2px solid var(--bg)}
+.timeline .yr{font-family:var(--display);font-stretch:78%;font-size:1.5rem;font-weight:800;line-height:1.1}
+.timeline ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
+@media (max-width:560px){.timeline>li{grid-template-columns:1fr}}
+.chg.p{color:var(--pos)} .chg.n{color:var(--neg)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="pages" aria-label="Pages"><a href="./">AI &amp; power</a><a href="quantum.html" aria-current="page">Quantum computing</a></nav>
+  <header class="top">
+    <div class="kicker">Quantum computing · supply chain &amp; stocks · prices as of Oct 7, 2026</div>
+    <h1>Fridge to Qubit</h1>
+    <p class="lede">Quantum computing is where AI was before ChatGPT: real science, huge promises, and almost no profit yet. This page maps <b>who supplies whom</b>, from helium-3 and dilution refrigerators to the companies building qubits and the banks and governments paying for them. It also covers <b>who's leading</b>, how the public stocks look, and <b>which private companies are likely to go public</b>.</p>
+    <div class="fuelpath" aria-label="How a quantum computer gets built">
+      <span>helium-3</span><i>→</i><span>dilution fridge</span><i>→</i><span>qubit chip or atoms</span><i>→</i><span>lasers &amp; control electronics</span><i>→</i><span>error correction (GPUs)</span><i>→</i><span>cloud</span><i>→</i><span>customer</span>
+    </div>
+    <p class="notice" id="notice">Research, not advice. The green pills show the gap between the latest price and the average Wall Street 12-month price target. Quantum targets are especially unreliable: few analysts cover these stocks, and targets lag big price drops.</p>
+  </header>
+
+  <div class="setup" aria-label="Market setup">
+    <div><b class="num">~$1.4B</b><span>Worldwide quantum computing revenue in 2025 (QED-C), less than a single quarter of many chip companies.</span></div>
+    <div><b class="num">~500×</b><span>Quantinuum's market value versus its trailing sales. IonQ trades near 69× sales.</span></div>
+    <div><b class="num">−30%</b><span>IonQ, Rigetti and D-Wave in the month to July 29, 2026, after a huge run.</span></div>
+    <div><b class="num">$2.0B</b><span>CHIPS money offered to nine quantum companies for government equity stakes (May 2026).</span></div>
+    <div><b class="num">2029</b><span>The year IBM, Quantinuum and Microsoft each target for a large error-corrected machine.</span></div>
+    <div><b class="num">6</b><span>Quantum companies that listed in 2026: Quantinuum by IPO, five more through SPACs.</span></div>
+  </div>
+
+  <section class="block static" id="explain">
+    <h2>What quantum computing really is</h2>
+    <p class="sub">A normal computer stores everything as bits, each either 0 or 1. A quantum computer uses <b>qubits</b>, which follow the rules of physics at the scale of single atoms. With the right program, a quantum computer makes the wrong answers cancel each other out and the right answer grow stronger. That makes it extremely fast at a few specific kinds of problems, not a faster laptop.</p>
+    <div class="explain">
+      <div class="ex"><span class="exn">1</span><h3>Superposition</h3><p>A qubit can be in a blend of 0 and 1 until you measure it. Think of a coin spinning in the air instead of lying heads or tails.</p></div>
+      <div class="ex"><span class="exn">2</span><h3>Entanglement</h3><p>Qubits can be linked so that measuring one tells you about the others. Adding one qubit doubles the space of possibilities: 300 linked qubits describe more combinations than there are atoms in the universe.</p></div>
+      <div class="ex"><span class="exn">3</span><h3>Interference</h3><p>Like noise-cancelling headphones, a quantum program arranges for wrong answers to cancel out and right ones to add up. Only a few known algorithms do this well, which is why quantum helps with some problems and not others.</p></div>
+      <div class="ex"><span class="exn">4</span><h3>Why it's so hard</h3><p>Qubits are fragile. Heat, vibration or stray light knocks them out of their state ("noise"). That's why many must sit near absolute zero, and why today's best machines still make an error about once every 1,000 operations.</p></div>
+      <div class="ex"><span class="exn">5</span><h3>Physical vs. logical qubits</h3><p>The fix is error correction: group many physical qubits into one reliable "logical" qubit. It may take roughly 100 to 1,000 physical qubits per logical one. Useful machines need hundreds to thousands of logical qubits, so headline qubit counts can mislead.</p></div>
+      <div class="ex"><span class="exn">6</span><h3>Where we are in 2026</h3><p>Google showed in 2024 that errors can shrink as machines grow, and in 2025 the first checkable "quantum advantage" results appeared. No one has yet solved a valuable business problem faster than a supercomputer. Most leaders target 2029 for large error-corrected machines.</p></div>
+    </div>
+    <div class="usegrid">
+      <div class="use good"><h3>What it should be good for</h3><ul>
+        <li><b>Chemistry and materials:</b> simulating molecules for drugs, batteries, fertilizer and catalysts. Nature is quantum, so this is the most natural fit.</li>
+        <li><b>Breaking today's encryption:</b> a large enough machine could crack the RSA and elliptic-curve codes that protect the internet (see Q-Day below).</li>
+        <li><b>Some optimization and finance:</b> routing, scheduling and risk models. Gains here are less proven.</li>
+        <li><b>Better sensors and clocks:</b> the same physics makes ultra-precise navigation and timing, which some companies already sell.</li>
+      </ul></div>
+      <div class="use bad"><h3>What it won't do</h3><ul>
+        <li>Replace your laptop, phone or Nvidia GPUs. Quantum computers will work alongside supercomputers, like a specialized co-processor.</li>
+        <li>Speed up everyday software, video, web browsing or training AI models in general.</li>
+        <li>Make money for most of these companies soon. Revenue today comes mainly from governments and research labs buying machines and cloud time.</li>
+      </ul></div>
+    </div>
+    <div class="tablewrap"><table class="qtable">
+      <thead><tr><th>Type of qubit</th><th>How it works</th><th>Leaders</th><th>Strength</th><th>Weakness</th></tr></thead>
+      <tbody>
+        <tr><td><b>Superconducting</b></td><td>Tiny circuits on a chip, cooled to near absolute zero</td><td>IBM, Google, Rigetti, IQM, OQC</td><td>Very fast; made with chip-industry tools</td><td>Noisy; needs huge fridges and lots of wiring</td></tr>
+        <tr><td><b>Trapped ion</b></td><td>Single charged atoms held in place and steered by lasers</td><td>Quantinuum, IonQ</td><td>Most accurate today; every qubit can talk to every other</td><td>Slower; harder to scale to huge numbers</td></tr>
+        <tr><td><b>Neutral atom</b></td><td>Uncharged atoms held by laser "tweezers"</td><td>QuEra, Atom Computing, Pasqal, Infleqtion</td><td>Easy to reach thousands of qubits</td><td>Slower operations; accuracy still improving</td></tr>
+        <tr><td><b>Photonic</b></td><td>Particles of light on silicon chips</td><td>PsiQuantum, Xanadu</td><td>Built in normal chip fabs; easy to network</td><td>Light gets lost; needs enormous scale</td></tr>
+        <tr><td><b>Spin in silicon</b></td><td>Single electrons in silicon, like transistors</td><td>Intel, Diraq, Photonic Inc.</td><td>Tiny; could use existing chip factories</td><td>Earliest stage; few qubits so far</td></tr>
+        <tr><td><b>Topological</b></td><td>Exotic "Majorana" states that resist noise by design</td><td>Microsoft</td><td>Could need far less error correction</td><td>Unproven; results are disputed</td></tr>
+        <tr><td><b>Annealing</b></td><td>A special machine that settles into low-energy answers</td><td>D-Wave</td><td>Sells today for optimization</td><td>Can't run general quantum programs</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="block" id="today" hidden style="margin-top:32px">
+    <h2>Since yesterday</h2>
+    <p class="sub" id="todaySub"></p>
+    <div class="today">
+      <div class="tcol"><h4>Biggest gains</h4><ol id="tUp"></ol></div>
+      <div class="tcol"><h4>Biggest drops</h4><ol id="tDown"></ol></div>
+      <div class="tcol"><h4>Analyst changes</h4><ol id="tTgt"></ol></div>
+      <div class="tcol" id="tWLcol" hidden><h4>Your watchlist</h4><ol id="tWL"></ol></div>
+    </div>
+  </section>
+
+  <section class="block" style="margin-top:48px">
+    <h2>Who supplies whom</h2>
+    <p class="sub">Tap any company to light up its suppliers and customers and see its stock. The left side is the parts and tools; the right side is the qubit builders, grouped by type. Clouds and customers sit at the bottom.</p>
+  </section>
+  <div class="controls">
+    <div class="pick" id="pick"><span class="lbl">Trace a customer</span></div>
+    <div class="legend">
+      <span><svg width="30" height="10" aria-hidden="true"><line x1="1" y1="5" x2="29" y2="5" stroke="currentColor" stroke-width="2"/></svg>supply, sale or service deal</span>
+      <span><svg width="30" height="10" aria-hidden="true"><line x1="1" y1="5" x2="29" y2="5" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"/></svg>investment, ownership or letter of intent</span>
+      <span><span class="up hi">+50%</span><span class="up mid">+20%</span><span class="up lo">+5%</span><span class="up neg">−3%</span>analyst upside</span>
+    </div>
+    <div class="authbar" id="authbar" hidden></div>
+  </div>
+
+  <div class="stage">
+    <div class="map" id="map">
+      <svg class="links" id="links" aria-hidden="true"></svg>
+    </div>
+    <aside class="inspector" id="insp" aria-live="polite"></aside>
+  </div>
+
+  <section class="block static" id="leaders">
+    <h2>Who's leading, and at what</h2>
+    <p class="sub">There's no single leader, because companies are racing on different measures. Here's who is ahead on each one as of October 2026.</p>
+    <div class="cards">
+      <button type="button" class="card lead" data-go="quantinuum"><div class="fig">99.921%</div><h3>Most accurate: Quantinuum</h3><p>Helios has the best two-qubit accuracy of any commercial machine and 48 error-corrected logical qubits.</p></button>
+      <button type="button" class="card lead" data-go="ibm"><div class="fig">2029</div><h3>Clearest roadmap: IBM</h3><p>A dated, year-by-year plan to Starling (200 logical qubits) in 2029 and Blue Jay (2,000) after 2033, and it delivered its 2025 chips on schedule.</p></button>
+      <button type="button" class="card lead" data-go="google"><div class="fig">13,000×</div><h3>Strongest science: Google</h3><p>Showed errors shrinking as qubits are added (2024), then the first checkable quantum advantage (2025).</p></button>
+      <button type="button" class="card lead" data-go="ionq"><div class="fig">$290M</div><h3>Most revenue: IonQ</h3><p>2026 guidance of $280–290M is far ahead of any other pure play, though much of it comes from acquisitions.</p></button>
+      <button type="button" class="card lead" data-go="psiquantum"><div class="fig">$7B</div><h3>Most private money: PsiQuantum</h3><p>$1B raised in 2025, plus nearly A$1B from Australia and a Chicago campus. Still private.</p></button>
+      <button type="button" class="card lead" data-go="atom"><div class="fig">1,225</div><h3>Biggest scale: neutral atoms</h3><p>Atom Computing and Microsoft's Magne uses 1,225 atoms for 50 logical qubits; neutral atoms scale fastest in raw count.</p></button>
+      <button type="button" class="card lead" data-go="dwave"><div class="fig">$35.5M</div><h3>Selling for real work today: D-Wave</h3><p>First-half 2026 bookings from optimization customers and system sales, though annealing is a narrow tool.</p></button>
+      <button type="button" class="card lead" data-go="nvidia"><div class="fig">19</div><h3>Wins either way: Nvidia</h3><p>About 19 qubit builders signed on to NVQLink to pair their machines with Nvidia GPUs.</p></button>
+    </div>
+  </section>
+
+  <section class="block" id="upside">
+    <h2>The public companies</h2>
+    <p class="sub">Every public company on the map, ranked by the gap to its average analyst target. The bar shows the lowest to highest target with the average marked; the dot is today's price. In quantum, the gaps are huge because prices fell faster than analysts cut targets, and a stock with only one or two analysts can show a misleading number. Tap a row to see it on the map.</p>
+    <div class="filters" id="filters"></div>
+    <div class="tablewrap">
+      <table id="tbl">
+        <thead><tr>
+          <th><button type="button" data-sort="name">Company</button></th>
+          <th>Link in the chain</th>
+          <th class="r"><button type="button" data-sort="px">Price</button></th>
+          <th class="r">Avg target</th>
+          <th class="r"><button type="button" data-sort="up" aria-sort="descending">Upside</button></th>
+          <th>Target range vs price</th>
+          <th class="r"><button type="button" data-sort="pe">Fwd P/E</button></th>
+          <th>Rating</th>
+          <th>Risk</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="foot">Forward P/E is price divided by analysts' expected earnings per share for next year; "n/m" means the company loses money. None of the pure plays make a profit. Risk is my read of how wide the outcomes are, based on profits, cash, and how far away real revenue is.</p>
+  </section>
+
+  <section class="block static" id="listings">
+    <h2>The class of 2026: how the new listings have done</h2>
+    <p class="sub">Six quantum companies went public this year. SPAC shares start at about $10, so that's the fair starting line for those five; Quantinuum's is its $60 IPO price.</p>
+    <div class="tablewrap"><table class="qtable" id="listtbl">
+      <thead><tr><th>Company</th><th>Listed</th><th>How</th><th>Value at listing</th><th class="r">Start</th><th class="r">Now</th><th class="r">Change</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <p class="foot">IonQ, Rigetti and D-Wave, which listed through SPACs in 2021–22, each fell roughly 70–95% from their starting prices by the 2022–23 lows before the 2024–25 rally. Lock-up expiries, usually about six months after listing, often bring a wave of insider selling.</p>
+  </section>
+
+  <section class="block static" id="ipo">
+    <h2>Will they go public? The private-company watch</h2>
+    <p class="sub">My read of how likely each well-known private company is to list within about the next 12 months, based on signed deals, filings and funding. "Likely" means a deal is signed or filed; "possible" means credible reports or a clear need for cash; "unlikely soon" means they recently raised plenty privately and have said nothing about listing.</p>
+    <div class="tablewrap"><table class="qtable ipo">
+      <thead><tr><th>Company</th><th>What it does</th><th>Latest value or raise</th><th>Status</th><th>Odds (next ~12 months)</th></tr></thead>
+      <tbody>
+        <tr><td><b>Terra Quantum</b></td><td>Quantum software and services (Switzerland)</td><td>$3.5B in the SPAC deal</td><td>Signed SPAC merger with Axiom Intelligence Acquisition Corp 1; planned ticker TQ; aiming to close in the second half of 2026</td><td><span class="odds o4">Likely</span></td></tr>
+        <tr><td><b>EigenQ</b></td><td>Quantum computing company</td><td>~$3.0B enterprise value</td><td>SPAC with Silicon Valley Acquisition Corp; draft S-4 filed Aug 2026; planned ticker EIGQ; targeting Q4 2026</td><td><span class="odds o4">Likely</span></td></tr>
+        <tr><td><b>SEEQC</b></td><td>Superconducting chips with built-in control (New York)</td><td>~$1B</td><td>Merger with Allegro Merger Corp plus a separate IPO filing as SEQC; already slipped past its mid-2026 target</td><td><span class="odds o3">Likely, but delayed</span></td></tr>
+        <tr><td><b>Quantisimo</b> (SEALSQ)</td><td>New quantum company carved out of WISeKey/SEALSQ</td><td>~$575M</td><td>Non-binding letter with SPAC GigCapital8; aiming for Q1 2027</td><td><span class="odds o2">Possible</span></td></tr>
+        <tr><td><b>Quantum Art</b></td><td>Trapped-ion computers (Israel)</td><td>$140M Series A</td><td>Reported in advanced SPAC talks at $2–5B (July 2026); no deal announced</td><td><span class="odds o2">Possible</span></td></tr>
+        <tr><td><b>Classiq</b></td><td>Quantum programming software (Israel)</td><td>$200M+ raised</td><td>Reported in SPAC talks at $2–5B; may raise one more private round first</td><td><span class="odds o2">Possible</span></td></tr>
+        <tr><td><b>Origin Quantum</b></td><td>China's leading superconducting builder</td><td>~¥21B pre-money</td><td>Preparing a Shanghai STAR Market IPO since Sept 2025; hard for US investors to buy</td><td><span class="odds o2">Possible</span></td></tr>
+        <tr><td><b>PsiQuantum</b></td><td>Photonic computers (California)</td><td>$7B (Sept 2025)</td><td>No filing. Builds are expensive and Brisbane is late, so it will need more money, but Quantinuum's IPO shows the door is open. The one to watch.</td><td><span class="odds o2">Possible, more likely 2027+</span></td></tr>
+        <tr><td><b>Atom Computing</b></td><td>Neutral-atom computers, Microsoft's partner</td><td>$100M Series C (June 2026)</td><td>No filing. Delivering Magne in Denmark would be a natural listing moment.</td><td><span class="odds o1">Unlikely soon</span></td></tr>
+        <tr><td><b>QuEra</b></td><td>Neutral-atom computers (Boston)</td><td>$230M+; reported $750M–1B</td><td>No listing plans; backed by Google, SoftBank and Nvidia</td><td><span class="odds o1">Unlikely soon</span></td></tr>
+        <tr><td><b>Photonic Inc.</b></td><td>Spin-photon computers (Canada)</td><td>$2B (May 2026)</td><td>Just raised; no IPO mentioned</td><td><span class="odds o1">Unlikely soon</span></td></tr>
+        <tr><td><b>Oxford Quantum Circuits</b></td><td>Superconducting computers (UK)</td><td>£260M Series C (June 2026)</td><td>CEO calls Quantinuum the "trailblazer" for quantum IPOs, but no plans announced</td><td><span class="odds o1">Unlikely soon</span></td></tr>
+        <tr><td><b>Quantum Machines</b></td><td>Control systems (Israel)</td><td>~$170M Series C (2025)</td><td>Reportedly raising a new private round</td><td><span class="odds o1">Unlikely soon</span></td></tr>
+        <tr><td><b>Alice &amp; Bob, Riverlane, Q-CTRL, Bluefors</b></td><td>Cat qubits, error correction, software, fridges</td><td>Various</td><td>No listing news</td><td><span class="odds o1">Unlikely soon</span></td></tr>
+      </tbody>
+    </table></div>
+    <p class="foot">This is a judgment call, not a prediction. SPAC deals can collapse before closing, and a weak market for quantum stocks would delay listings. The 2026 listings have had mixed results (see the table above), which is a reason to wait for some trading history before buying a new listing.</p>
+  </section>
+
+  <section class="block">
+    <h2>Six ways to play it</h2>
+    <p class="sub">The same industry pays different companies at different times. Toolmakers and big tech get paid now from other businesses; the pure plays only pay off if useful machines arrive on schedule. Matching the bet to how long you can wait matters as much as picking the company.</p>
+    <div class="themes" id="themes"></div>
+  </section>
+
+  <section class="block static" id="roadmap">
+    <h2>The roadmap: what's promised, and when</h2>
+    <p class="sub">Companies' own targets, plus the encryption deadlines governments have set. Quantum timelines have slipped before (PsiQuantum's Brisbane site is about a year late), so treat these as goals.</p>
+    <ol class="timeline">
+      <li><b class="yr">2026</b><ul><li>IBM expects quantum advantage to be confirmed by researchers, and plans its Kookaburra module.</li><li>Atom Computing and Microsoft's Magne (50 logical qubits) due late 2026 or early 2027.</li><li>Pasqal targets a 250-qubit advantage demonstration; D-Wave's first gate-model system.</li></ul></li>
+      <li><b class="yr">2027</b><ul><li>Quantinuum's Sol; IonQ's first system at Nvidia's research center.</li><li>NSA: new national-security systems must support post-quantum encryption.</li><li>IonQ claims 800 logical qubits (the most aggressive target in the industry).</li></ul></li>
+      <li><b class="yr">2028</b><ul><li>IBM: 1,000+ qubits and 15,000 operations.</li><li>Pasqal's Centaurus; PsiQuantum's Chicago site, possibly.</li></ul></li>
+      <li><b class="yr">2029</b><ul><li>The big target year: IBM Starling (200 logical qubits), Quantinuum Apollo, and Microsoft's pulled-forward goal for a scalable Majorana machine.</li><li>Pasqal targets about 100 logical qubits.</li></ul></li>
+      <li><b class="yr">2030</b><ul><li>NIST's draft plan deprecates RSA-2048 and today's elliptic-curve encryption.</li><li>PsiQuantum's Brisbane machine now looks closer to this date.</li><li>IonQ claims 80,000 logical qubits.</li></ul></li>
+      <li><b class="yr">2033</b><ul><li>IBM Blue Jay (2,000 logical qubits) from 2033.</li><li>DARPA's test year: is a useful, utility-scale machine possible by now?</li></ul></li>
+      <li><b class="yr">2035</b><ul><li>All quantum-vulnerable encryption disallowed by NIST; NSA's deadline for all national-security systems.</li><li>McKinsey forecasts a $43–71B quantum computing market.</li></ul></li>
+    </ol>
+  </section>
+
+  <section class="block static" id="qday">
+    <h2>Q-Day: the encryption problem</h2>
+    <p class="sub">"Q-Day" is the day a quantum computer can break the encryption that protects bank logins, Bitcoin wallets and government secrets. It's the clearest real-world reason governments are spending on quantum, and on defending against it.</p>
+    <div class="cards">
+      <div class="card p"><div class="fig">&lt;1M</div><h3>noisy qubits could break RSA-2048 in under a week</h3><p>Google's Craig Gidney (May 2025), down from 20 million in 2019. 2026 papers claim far fewer, though none has been built.</p></div>
+      <div class="card p"><div class="fig">28–49%</div><h3>chance of a code-breaking machine within 10 years</h3><p>Global Risk Institute's 2026 expert survey, the highest it has ever recorded; 69% of experts put it at 50% or more within 15 years.</p></div>
+      <div class="card p"><div class="fig">Now</div><h3>"Harvest now, decrypt later"</h3><p>Spies can copy encrypted data today and unlock it once a big enough machine exists, which is why the switch has to start years early.</p></div>
+      <div class="card h"><div class="fig">2024</div><h3>new encryption standards are ready</h3><p>NIST finished its first post-quantum standards (ML-KEM and two signature schemes) in August 2024 and picked HQC as a backup in 2025.</p></div>
+      <div class="card h"><div class="fig">2027–35</div><h3>deadlines to switch</h3><p>NSA requires post-quantum support in new systems from 2027 and everywhere by 2035; NIST deprecates RSA and ECC in 2030; the EU targets 2030 for high-risk systems.</p></div>
+      <div class="card c"><div class="fig">LAES · ARQQ · BTQ</div><h3>small listed post-quantum security plays</h3><p>SEALSQ, Arqit and BTQ are tiny and volatile. Private SandboxAQ (valued above $5.6B) is the biggest specialist; large chip and security companies will also capture much of this spending.</p></div>
+    </div>
+  </section>
+
+  <section class="block static" id="gov">
+    <h2>Government money</h2>
+    <p class="sub">Governments are the biggest buyers and backers of quantum today. In 2026 the US went a step further and started taking ownership stakes.</p>
+    <div class="cards">
+      <div class="card p"><div class="fig">$2.0B</div><h3>US CHIPS equity letters of intent (May 2026)</h3><p>IBM $1B, GlobalFoundries $375M, and $100M each for Atom Computing, D-Wave, Infleqtion, PsiQuantum, Quantinuum and Rigetti, plus $38M for Diraq. D-Wave, Rigetti and Quantinuum were finalized on Sept 8; Rigetti's shares went to the government at $12.92.</p></div>
+      <div class="card p"><div class="fig">11</div><h3>companies in DARPA's QBI Stage B</h3><p>Atom Computing, Diraq, IBM, IonQ, Nord Quantique, Photonic, Quantinuum, Quantum Motion, QuEra, Silicon Quantum Computing and Xanadu. Microsoft and PsiQuantum are in the final phase of a related program. Rigetti and D-Wave aren't on the list.</p></div>
+      <div class="card p"><div class="fig">$625M</div><h3>DOE renewal of five national quantum centers</h3><p>Over up to five years (Nov 2025). A reauthorization of the National Quantum Initiative passed committees in both houses in April 2026.</p></div>
+      <div class="card h"><div class="fig">$500M · A$940M</div><h3>States and allies backing PsiQuantum</h3><p>Illinois is funding a quantum park in Chicago with PsiQuantum as anchor; Australia and Queensland committed A$940M to its Brisbane site.</p></div>
+      <div class="card h"><div class="fig">£670M · ¥50B</div><h3>UK and Japan</h3><p>The UK funded its National Quantum Computing Centre for ten years (June 2025); Japan put about ¥50B into Fujitsu, startups and a new national facility.</p></div>
+      <div class="card c"><div class="fig">¥1T</div><h3>China's hard-tech fund</h3><p>A roughly $138B government venture fund covering quantum, AI and chips (March 2025). Chinese quantum firms are lining up for Shanghai IPOs.</p></div>
+    </div>
+  </section>
+
+  <section class="block static" id="hype">
+    <h2>Hype check: the risks</h2>
+    <p class="sub">Things to keep in mind before buying any quantum stock.</p>
+    <div class="cards">
+      <div class="card c"><div class="fig">~$1.4B</div><h3>The whole industry's revenue is small</h3><p>QED-C estimates about $1.4B of quantum computing revenue in 2025, rising to about $3B by 2028. Listed quantum companies are worth many times that.</p></div>
+      <div class="card c"><div class="fig">~$895M</div><h3>Insiders have been selling</h3><p>Insiders at IonQ, Rigetti, D-Wave and Quantum Computing Inc. sold roughly $840–930M of stock over several years through mid-2026. Some of it is routine tax selling on stock pay.</p></div>
+      <div class="card c"><div class="fig">Dilution</div><h3>New shares keep coming</h3><p>Pure plays fund their losses by selling stock; IonQ and QUBT built multi-billion-dollar cash piles that way. The government stakes are also new shares, sold at a discount.</p></div>
+      <div class="card c"><div class="fig">2025</div><h3>Even experts flip-flop on timing</h3><p>Nvidia's Jensen Huang said in January 2025 that useful quantum was 15–20 years away (the stocks crashed), then said in March that he'd been wrong.</p></div>
+      <div class="card c"><div class="fig">Disputed</div><h3>Claims get challenged</h3><p>D-Wave's 2025 "supremacy" result and Microsoft's Majorana qubits were both questioned by outside researchers. Wait for independent confirmation.</p></div>
+      <div class="card c"><div class="fig">Targets</div><h3>Analyst targets lag</h3><p>Many targets were set near the highs, before the July selloff, and some stocks have only one to four analysts. A +100% "upside" here says more about the stale target than the future.</p></div>
+    </div>
+  </section>
+
+  <section class="block static" id="own">
+    <h2>How to own it</h2>
+    <p class="sub">Four ways in, from least to most risky.</p>
+    <div class="labs">
+      <article class="lab">
+        <div class="hd"><h3>The basket</h3><span class="tag">ETF</span></div>
+        <div class="stats">
+          <div><b id="qtumpx">$154</b><span id="qtumsub">QTUM, Defiance Quantum ETF</span></div>
+          <div><b>−16%</b><span>QTUM in the July selloff month, versus −30 to −39% for the pure plays</span></div>
+        </div>
+        <p class="disc" style="font-size:14px;color:var(--ink)">QTUM holds dozens of quantum and computing-hardware stocks, so you own the theme without betting on one winner. It includes many big chip and tech companies, so it moves less than the pure plays in both directions. Check its current holdings and fees before buying.</p>
+      </article>
+      <article class="lab">
+        <div class="hd"><h3>Big tech and toolmakers</h3><span class="tag">lower risk</span></div>
+        <div class="own">
+          <button type="button" data-go="ibm"><b>IBM</b><span>Clearest roadmap; $1B CHIPS letter of intent</span><span class="d">direct lab</span></button>
+          <button type="button" data-go="honeywell"><b>HON</b><span>About 48% of Quantinuum's votes</span><span class="d">indirect</span></button>
+          <button type="button" data-go="nvidia"><b>NVDA</b><span>NVQLink, CUDA-Q, and private stakes</span><span class="d">picks &amp; shovels</span></button>
+          <button type="button" data-go="google"><b>GOOGL</b><span>Willow and Quantum Echoes; QuEra investor</span><span class="d">direct lab</span></button>
+        </div>
+      </article>
+      <article class="lab">
+        <div class="hd"><h3>Pure plays</h3><span class="tag">high risk</span></div>
+        <div class="own">
+          <button type="button" data-go="quantinuum"><b>QNT</b><span>Most accurate machines; below its IPO price</span><span class="d">trapped ion</span></button>
+          <button type="button" data-go="ionq"><b>IONQ</b><span>Most revenue; buying a lot</span><span class="d">trapped ion</span></button>
+          <button type="button" data-go="rigetti"><b>RGTI</b><span>Own fab; US government is a shareholder</span><span class="d">superconducting</span></button>
+          <button type="button" data-go="dwave"><b>QBTS</b><span>Sells optimization today</span><span class="d">annealing</span></button>
+        </div>
+      </article>
+      <article class="lab">
+        <div class="hd"><h3>New listings and post-quantum security</h3><span class="tag">very high risk</span></div>
+        <div class="own">
+          <button type="button" data-go="infleqtion"><b>INFQ</b><span>Neutral atoms plus clocks and sensors</span><span class="d">SPAC 2026</span></button>
+          <button type="button" data-go="pasqal"><b>PSQL</b><span>Neutral atoms; Aramco customer</span><span class="d">SPAC 2026</span></button>
+          <button type="button" data-go="iqm"><b>IQMX</b><span>Europe's system seller</span><span class="d">SPAC 2026</span></button>
+          <button type="button" data-go="sealsq"><b>LAES</b><span>Post-quantum security chips</span><span class="d">PQC</span></button>
+        </div>
+        <p class="disc">A common approach for a speculative theme is to keep it a small part of a portfolio and size each pure play so that losing most of it would be survivable. That's general practice, not advice for your situation.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="block sources">
+    <h2>Sources</h2>
+    <ol id="srclist"></ol>
+    <p class="foot">Prices and analyst targets come from Yahoo Finance through this site's daily update (Oct 7, 2026, midday prices on first publish). Company facts come from the cited reporting as of early October 2026. The IPO odds, risk levels and leader picks are my own judgment. This page is research for your own decisions and is not financial advice.</p>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script>
+/* GENERATED by scripts/build_quantum.py from src/quantum/ and the engine in index.html. Edit those, then rebuild. */
+const SRC = {
+  sa:["StockAnalysis.com: quote and analyst forecast pages","https://stockanalysis.com/"],
+  qntipo:["StockAnalysis.com: Quantinuum (QNT) profile and IPO data","https://stockanalysis.com/stocks/QNT/"],
+  qntbuzz:["IPO Scoop: Quantinuum priced upsized IPO at $60 (June 2026)","https://www.iposcoop.com/the-ipo-buzz-quantinuum-priced-upsized-ipo-at-60-5-above-range/"],
+  qntgo:["Gotrade: Quantinuum's Nasdaq debut and Honeywell's stake (June 2026)","https://www.heygotrade.com/en/news/quantinuum-nasdaq-debut-quantum-computing-stocks/"],
+  helios:["Quantinuum: commercial launch of Helios (Nov 2025)","https://www.quantinuum.com/press-releases/quantinuum-announces-commercial-launch-of-new-helios-quantum-computer-that-offers-unprecedented-accuracy-to-enable-generative-quantum-ai-genqai"],
+  qntyahoo:["Yahoo Finance: Quantinuum's IPO puts the quantum rally to the test","https://finance.yahoo.com/markets/article/honeywells-quantinuums-ipo-puts-the-quantum-stock-rally-to-the-test-154531114.html"],
+  qnt600:["The Quantum Insider: Quantinuum's $600M raise at a $10B valuation (Sept 2025)","https://thequantuminsider.com/2025/09/04/honeywell-announces-600-million-capital-raise-for-quantinuum-at-10-billion-pre-money-equity-valuation-to-advance-quantum-computing-at-scale/"],
+  qntchips:["The Quantum Insider: Quantinuum finalizes $100M award with GlobalFoundries and Monarch (Sept 2026)","https://thequantuminsider.com/2026/09/08/quantinuum-finalizes-100m-us-government-award-quantum-manufacturing/"],
+  qntbmw:["Quantum Computing Report: Quantinuum and BMW multi-year partnership (May 2026)","https://quantumcomputingreport.com/quantinuum-and-bmw-group-expand-collaboration-with-multi-year-partnership/"],
+  infq:["Quantum Computing Report: Infleqtion goes public on NYSE (Feb 2026)","https://quantumcomputingreport.com/infleqtion-goes-public-on-nyse-via-spac-merger-raising-550-million/"],
+  hq:["The Quantum Insider: Horizon Quantum goes public via SPAC (Mar 2026)","https://thequantuminsider.com/2026/03/19/horizon-quantum-goes-public-via-spac-raises-120-million/"],
+  xndu:["Bennett Jones: Crane Harbor completes combination with Xanadu (Mar 2026)","https://www.bennettjones.com/News/Client-Work/Crane-Harbor-Completes-Business-Combination-with-Xanadu-Quantum-Technologies"],
+  xnduval:["BetaKit: Xanadu's $3.6B SPAC deal (Nov 2025)","https://betakit.com/xanadu-to-go-public-on-nasdaq-and-tsx-in-3-6-billion-usd-spac-deal/"],
+  xndutower:["Xanadu and Tower Semiconductor deepen collaboration (Feb 2026)","https://www.globenewswire.com/news-release/2026/02/19/3240857/0/en/Xanadu-and-Tower-Semiconductor-Deepen-Strategic-Collaboration-to-Accelerate-Photonic-Quantum-Hardware-Innovation.html"],
+  iqm:["Dealroom: IQM lists on Nasdaq at $1.9B (July 2026)","https://dealroom.co/news/136905-iqm-lists-on-nasdaq-at-1-9b-becoming-europes-first-public-quantum-player/"],
+  iqmout:["The Quantum Insider: IQM confirms 2026 outlook, €102M+ in orders (Aug 2026)","https://thequantuminsider.com/2026/08/04/iqm-confirms-2026-outlook-after-public-listing-citing-more-than-e102-million-in-orders"],
+  pasqal:["The Star: Pasqal surges in Nasdaq debut (Aug 28, 2026)","https://www.thestar.com.my/tech/tech-news/2026/08/28/frances-quantum-computer-maker-pasqal-surges-in-nasdaq-debut"],
+  pasqaltk:["Parameter: Pasqal (PSQL) rises 40% on its first day","https://parameter.io/pasqal-psql-stock-rockets-40-higher-in-first-day-of-nasdaq-trading/"],
+  aramco:["The Quantum Insider: Aramco and Pasqal deploy Saudi Arabia's first quantum computer (Nov 2025)","https://thequantuminsider.com/2025/11/24/saudi-arabia-first-quantum-computer-aramco-pasqal/"],
+  terra:["Quantum Computing Report: Terra Quantum and Axiom sign $3.5B SPAC agreement","https://quantumcomputingreport.com/terra-quantum-and-axiom-intelligence-corp-1-sign-definitive-business-combination-agreement-at-3-5-billion-valuation/"],
+  eigenq:["Quantum Computing Report: EigenQ and Silicon Valley Acquisition Corp file S-4 (Aug 2026)","https://quantumcomputingreport.com/eigenq-and-silicon-valley-acquisition-corp-advance-3b-spac-merger-via-form-s-4-submission/amp/"],
+  seeqc:["The Quantum Insider: SEEQC to go public via Allegro Merger Corp (Jan 2026)","https://thequantuminsider.com/2026/01/16/seeqc-to-go-public-through-merger-with-allegro-merger-corp/"],
+  seeqcs1:["Quantum Computing Report: SEEQC files S-1 for a Nasdaq IPO","https://quantumcomputingreport.com/seeqc-files-form-s-1-for-nasdaq-ipo-parallel-to-ongoing-allegro-merger-process/"],
+  ynet:["Ynet/Calcalist: Quantum Art and Classiq in SPAC talks (July 2026)","https://www.ynetnews.com/business/article/hypoglzegg"],
+  qart:["The Quantum Insider: Quantum Art extends Series A to $140M (Apr 2026)","https://thequantuminsider.com/2026/04/27/quantum-art-extends-series-a-funding-to-140-million-with-participation-from-global-financial-leaders/"],
+  quantisimo:["Goldesel: SEALSQ plans Quantisimo via GigCapital8 (June 2026)","https://goldesel.de/aktien/news/sealsq-plant-nasdaq-quantenplattform-quantisimo-loi-mit-gigcapital8-startet-deal-uber-575-mio-usd"],
+  psiq:["TechSpot: PsiQuantum raises $1B at a $7B valuation (Sept 2025)","https://www.techspot.com/news/109433-psiquantum-raises-1-billion-hits-7-billion-valuation.html"],
+  psiqlate:["Startup Daily: PsiQuantum's Brisbane build is running late (Dec 2025)","https://www.startupdaily.net/topic/global-tech/psiquantums-brisbane-build-is-already-running-very-late/"],
+  psiqgf:["SDxCentral: Nvidia backs PsiQuantum; GlobalFoundries makes its chips","https://www.sdxcentral.com/news/nvidia-backs-photonic-quantum-chip-maker-valued-at-7b/"],
+  iqmp:["Quantum Computing Report: Illinois breaks ground on its quantum park","https://quantumcomputingreport.com/illinois-breaks-ground-on-quantum-and-microelectronics-park-with-psiquantum-as-anchor-tenant/"],
+  atom:["Atom Computing: $100M Series C (June 2026)","https://atom-computing.com/?p=1532"],
+  magne:["Quantum Computing Report: Denmark's QuNorth to acquire Magne","https://quantumcomputingreport.com/denmarks-qunorth-to-acquire-50-logical-qubit-magne-quantum-computer-from-atom-computing-and-microsoft/"],
+  quera:["The Quantum Insider: QuEra completes $230M financing (Feb 2025)","https://thequantuminsider.com/2025/02/11/quera-computing-completes-230-million-financing-to-accelerate-development-of-large-scale-fault-tolerant-quantum-computers/"],
+  queranv:["The Quantum Insider: QuEra adds Nvidia's NVentures (Sept 2025)","https://thequantuminsider.com/2025/09/09/quera-secures-investment-from-nventures-expands-230-million-financing-round/"],
+  oqc:["Quantum Computing Report: OQC closes £260M Series C (June 2026)","https://quantumcomputingreport.com/oxford-quantum-circuits-closes-260-million-series-c-round-to-scale-superconducting-quantum-infrastructure-globally/"],
+  photonic:["HPCwire: Photonic Inc. closes $200M at a $2B valuation (May 2026)","https://www.hpcwire.com/off-the-wire/photonic-inc-announces-final-close-of-200m-funding-round-at-2b-valuation/"],
+  alicebob:["NAI 500: Alice & Bob completes Series B extension (May 2026)","https://nai500.com/blog/2026/05/quantum-computing-funding-heats-up-again-as-alice-bob-completes-series-b-extension/"],
+  qm:["Caplight: Quantum Machines funding and valuation","https://www.caplight.com/company/quantum-machines"],
+  origin:["AI2 Work: Chinese quantum firms race to IPO (Aug 2026)","https://ai2.work/blog/five-chinese-quantum-firms-race-to-claim-the-first-quantum-ipo-crown"],
+  ionqq2:["IonQ: second-quarter 2026 results","https://ionq.com/news/ionq-announces-record-second-quarter-2026-revenues-growing-287-yoy"],
+  ionqqcr:["Quantum Computing Report: IonQ Q2 2026, guidance raised","https://quantumcomputingreport.com/ionq-reports-record-q2-2026-financial-results-revenue-soars-287-to-80-1m-full-year-guidance-raised-to-290m/"],
+  ionqsky:["The Quantum Insider: IonQ completes SkyWater acquisition (July 2026)","https://thequantuminsider.com/2026/07/31/ionq-completes-skywater-acquisition-quantum-manufacturing/"],
+  skycust:["Quantum Computing Report: IonQ to acquire SkyWater; foundry customers","https://quantumcomputingreport.com/ionq-to-acquire-skywater-technology-in-1-8-billion-vertical-integration-transaction/"],
+  ionqnv:["IonQ: first QPU for Nvidia's Accelerated Quantum Research Center (Sept 2026)","https://investors.ionq.com/news/news-details/2026/IonQ-to-Advance-Quantum-Supercomputing-by-Bringing-First-QPU-to-NVIDIA-Accelerated-Quantum-Research-Center/default.aspx"],
+  ionqrm:["IonQ: technology roadmap","https://ionq.com/roadmap"],
+  ionqaz:["The Quantum Insider: IonQ, AstraZeneca, AWS and Nvidia (June 2025)","https://thequantuminsider.com/2025/06/09/ionq-speeds-quantum-accelerated-drug-development-application-in-partnership-with-astrazeneca-aws-and-nvidia/"],
+  ionqnkt:["IonQ: partnership with NKT Photonics","https://ionq.com/news/ionq-announces-partnership-with-nkt-photonics-for-next-generation-laser"],
+  rgti:["Quantum Computing Report: Rigetti Q2 2026 results","https://quantumcomputingreport.com/rigetti-computing-reports-q2-2026-financial-results-revenue-up-185-yoy-100m-chips-act-loi-and-hpe-supercomputing-partnership/"],
+  rgtisec:["Rigetti: Q4 2025 results and contracts (SEC exhibit)","https://www.sec.gov/Archives/edgar/data/1838359/000110465926023446/rgti-20260304xex99d1.htm"],
+  rgtiquanta:["The Quantum Insider: Rigetti finalizes $35M Quanta investment (Apr 2025)","https://thequantuminsider.com/2025/04/30/rigetti-finalizes-35-million-investment-as-quanta-partnership-moves-forward/"],
+  qbts:["Quantum Computing Report: D-Wave Q2 2026 results","https://quantumcomputingreport.com/d-wave-reports-its-q2-2026-financial-results-showing-bookings-surge-technical-progress-and-qci-acquisition-impact/"],
+  qbtsqci:["D-Wave: agreement to acquire Quantum Circuits (Jan 2026)","https://www.dwavequantum.com/company/newsroom/press-release/d-wave-to-acquire-quantum-circuits"],
+  qbtssup:["HPCwire: D-Wave's supremacy claim draws an immediate challenge (Mar 2025)","https://www.hpcwire.com/2025/03/13/d-wave-reports-quantum-supremacy-stirs-immediate-challenge-and-rebuttal/"],
+  qubt:["Quantum Computing Report: Quantum Computing Inc. Q2 2026 results","https://quantumcomputingreport.com/quantum-computing-inc-reports-q2-2026-financial-results-revenue-surges-to-5-6m-and-fab-2-launch-via-nhanced-acquisition/"],
+  ibm:["IBM: new processors and the path to fault tolerance (Nov 2025)","https://newsroom.ibm.com/2025-11-12-ibm-delivers-new-quantum-processors,-software,-and-algorithm-breakthroughs-on-path-to-advantage-and-fault-tolerance"],
+  ibmrm:["IBM: quantum roadmap (2026)","https://ibm.com/roadmaps/quantum/2026"],
+  ibmamd:["HPCwire: IBM runs error correction on AMD FPGAs (Oct 2025)","https://www.hpcwire.com/2025/10/28/ibm-touts-affordable-quantum-error-correction-on-amd-fpgas/"],
+  ibmriken:["The Quantum Insider: IBM and RIKEN unveil Quantum System Two (June 2025)","https://thequantuminsider.com/2025/06/24/ibm-riken-system-two/"],
+  hsbc:["HSBC: quantum-enabled algorithmic trading with IBM (Sept 2025)","https://www.hsbc.com/news-and-views/news/media-releases/2025/hsbc-demonstrates-worlds-first-known-quantum-enabled-algorithmic-trading-with-ibm"],
+  jpm:["JPMorgan Chase: certified randomness with Quantinuum (Mar 2025)","https://www.jpmorganchase.com/about/technology/news/certified-randomness"],
+  echoes:["Quantum Computing Report: Google's verifiable advantage with Quantum Echoes (Oct 2025)","https://quantumcomputingreport.com/google-quantum-ai-achieves-verifiable-quantum-advantage-on-willow-chip-with-quantum-echoes-algorithm/"],
+  googrm:["Quantum Zeitgeist: Google's quantum roadmap and neutral-atom effort","https://quantumzeitgeist.com/google-quantum-computing/"],
+  atlantic:["The Quantum Insider: Atlantic Quantum joins Google Quantum AI (Oct 2025)","https://thequantuminsider.com/2025/10/03/atlantic-quantum-joins-google-quantum-ai/"],
+  zurich:["Zurich Instruments: control systems for Atlantic Quantum","https://www.zhinst.com/en/news/zurich-instruments-provides-quantum-computing-control-systems-atlantic-quantum/"],
+  maj2:["PostQuantum: analysis of Microsoft's Majorana 2 (June 2026)","https://postquantum.com/industry-news/microsoft-majorana-2-analysis/"],
+  ocelot:["The Next Platform: AWS Ocelot cat qubits (Feb 2025)","https://www.nextplatform.com/2025/02/27/aws-cat-qubits-make-quantum-error-correction-effective-affordable/"],
+  braket:["AWS: Amazon Braket quantum computers","https://aws.amazon.com/braket/quantum-computers/"],
+  azure:["Microsoft Learn: Azure Quantum providers (Apr 2026)","https://learn.microsoft.com/en-us/azure/quantum/qc-target-list"],
+  nvqlink:["Nvidia: NVQLink for quantum builders and labs (Oct 2025)","https://investor.nvidia.com/news/press-release-details/2025/NVIDIA-Introduces-NVQLink--Connecting-Quantum-and-GPU-Computing-for-17-Quantum-Builders-and-Nine-Scientific-Labs/default.aspx"],
+  nvaqc:["Nvidia: Accelerated Quantum Research Center (Mar 2025)","https://investor.nvidia.com/news/press-release-details/2025/NVIDIA-to-Build-Accelerated-Quantum-Computing-Research-Center/default.aspx"],
+  huang:["NBC: Jensen Huang says he was wrong about the quantum timeline (Mar 2025)","https://nbclosangeles.com/news/business/money-report/nvidia-ceo-huang-says-he-was-wrong-about-timeline-for-quantum-surprised-his-comments-hurt-stocks/3659492"],
+  he3:["The Quantum Insider: Bluefors buys lunar helium-3 from Interlune (Sept 2025)","https://thequantuminsider.com/2025/09/17/bluefors-enters-deal-to-secure-lunar-helium-3-supply-from-interlune/"],
+  he3b:["GeekWire: Interlune's deals with Maybell and the DOE (May 2025)","https://www.geekwire.com/2025/interlune-moon-mining-vermeer-maybell-quantum-doe/"],
+  kide:["Bluefors: KIDE cryogenic platform for IBM","https://bluefors.com/stories/kide-cryogenic-platform-from-design-to-delivery/"],
+  delft:["Quantum Computing Report: Bluefors and Delft Circuits partner (Sept 2025)","https://quantumcomputingreport.com/bluefors-and-delft-circuits-join-forces-on-scalable-quantum-i-o-for-next-generation-quantum-computers/"],
+  form:["FormFactor: partnership with Delft Circuits (Mar 2025)","https://www.formfactor.com/press-release/formfactor-partners-with-delft-circuits-to-revolutionize-quantum-computing-interfacing"],
+  maybell:["Quantum Computing Report: Maybell deploys fridges at Roadrunner Quantum Lab (July 2026)","https://quantumcomputingreport.com/maybell-quantum-deploys-dilution-refrigerators-at-roadrunner-quantum-lab/"],
+  qdo:["The Quantum Insider: Quantum Design acquires Oxford NanoScience (Jan 2026)","https://thequantuminsider.com/2026/01/05/quantum-design-acquires-oxford-nanoscience-joining-two-historic-cryogeniccompanies/"],
+  oxoqc:["Oxford Instruments: technology for OQC's quantum-AI data centre (Nov 2025)","https://www.oxinst.com/news/news/oxford-instruments-contributes-technology-to-oqc-quantum-ai-data-centre/"],
+  oxrgti:["Oxford Instruments: atomic-layer etch tool for Rigetti (May 2026)","https://www.oxinst.com/news/oxford-instruments-to-supply-atomic-layer-etch-equipment-to-rigetti-computing-to-expand-advanced-quantum-fabrication-capabilities/"],
+  keysight:["The Quantum Insider: Keysight control system in Fujitsu/RIKEN's 256-qubit computer (May 2025)","https://thequantuminsider.com/2025/05/16/keysight-quantum-control-system-embedded-within-fujitsu-and-rikens-world-leading-256-qubit-quantum-computer/"],
+  qmjul:["The Quantum Insider: Jülich deploys Nvidia DGX Quantum with Quantum Machines (Sept 2025)","https://thequantuminsider.com/2025/09/18/julich-supercomputing-centre-to-deploy-nvidia-dgx-quantum-system-with-arque-systems-and-quantum-machines/"],
+  qblox:["Quantum Computing Report: Qblox launches US manufacturing","https://quantumcomputingreport.com/qblox-launches-u-s-manufacturing-for-quantum-control-systems/amp/"],
+  quantware:["The Quantum Insider: QuantWare raises $178M (May 2026)","https://thequantuminsider.com/2026/05/05/quantware-raises-178-million-to-build-quantum-processors-at-an-industrial-scale/"],
+  riverlane:["Riverlane: Deltaflow 2 delivered to Rigetti and Infleqtion","https://www.riverlane.com/news/deltaflow-2-delivered-to-rigetti-and-infleqtion"],
+  rlinfq:["Quantum Computing Report: Infleqtion and Riverlane MoU (Sept 2026)","https://quantumcomputingreport.com/infleqtion-and-riverlane-execute-strategic-mou-to-integrate-neutral-atom-hardware-with-real-time-qec-decoders/amp/"],
+  qctrl:["The Quantum Insider: Q-CTRL Fire Opal on IBM, Rigetti, OQC and Diraq","https://thequantuminsider.com/2024/09/11/q-ctrl-expands-fire-opal-integration-to-leading-quantum-platforms-ibm-rigetti-oqc-and-diraq/"],
+  classiq:["Classiq: IonQ, AMD and Qualcomm Ventures join its round","https://www.classiq.io/insights/ionq-amd-and-qualcomm-ventures-join-classiq-strategic-up-round"],
+  qbi:["DARPA: Quantum Benchmarking Initiative Stage B selections","https://www.darpa.mil/research/programs/quantum-benchmarking-initiative/stage-b-selection"],
+  loi:["The Quantum Insider: Commerce letters of intent with nine companies for $2B (May 2026)","https://thequantuminsider.com/2026/05/21/u-s-department-of-commerce-announces-letters-of-intent-with-9-companies-for-2-billion/"],
+  chipsfin:["AI2 Work: Commerce takes equity stakes in D-Wave, Rigetti and Quantinuum (Sept 2026)","https://ai2.work/blog/commerce-takes-equity-stakes-in-d-wave-rigetti-and-quantinuum"],
+  dwave8k:["D-Wave 8-K: CHIPS Act equity agreement (Sept 8, 2026)","https://www.sec.gov/Archives/edgar/data/0001907982/000190798226000141/chipsactpressrelease.htm"],
+  doe:["Quantum Computing Report: DOE renews five national quantum centers for $625M","https://quantumcomputingreport.com/doe-announces-625-million-renewal-for-five-national-quantum-information-science-research-centers/"],
+  nqi:["Nextgov: Senate committee approves quantum reauthorization (Apr 2026)","https://www.nextgov.com/emerging-tech/2026/04/senate-committee-approves-quantum-reauthorization-bill-7-amendments/412840/"],
+  uk:["NQCC: £670M ten-year funding for the UK National Quantum Computing Centre","https://www.nqcc.ac.uk/?p=25020"],
+  japan:["The Quantum Insider: Japan backs quantum startups (July 2025)","https://thequantuminsider.com/2025/07/31/japan-backs-quantum-startups-in-50-billion-push-for-tech-leadership/"],
+  china:["The Quantum Insider: China's $138B hard-tech fund includes quantum (Mar 2025)","https://thequantuminsider.com/2025/03/07/china-launches-138-billion-government-backed-venture-fund-includes-quantum-startups/"],
+  mck:["PostQuantum: McKinsey Quantum Technology Monitor 2026","https://postquantum.com/industry-news/mckinsey-quantum-monitor-2026/"],
+  qedc:["HPCwire: QED-C says quantum computing market to reach $3B by 2028 (Apr 2026)","https://www.hpcwire.com/off-the-wire/qed-c-report-global-quantum-computing-market-to-double-by-2028-reaching-3b-in-revenue/"],
+  gidney:["Gidney (2025): RSA-2048 with fewer than a million noisy qubits (arXiv)","https://arxiv.org/html/2505.15917v1"],
+  rsa:["PostQuantum: newer, lower estimates for breaking RSA-2048","https://postquantum.com/industry-news/quantum-breakthrough-rsa-2048/"],
+  gri:["PostQuantum: Global Risk Institute quantum threat timeline survey","https://postquantum.com/security-pqc/quantum-threat-timeline-report-2025/"],
+  hqc:["NIST: HQC selected as a fifth post-quantum algorithm (Mar 2025)","https://www.nist.gov/news-events/news/2025/03/nist-selects-hqc-fifth-algorithm-post-quantum-encryption"],
+  pqcdead:["The Quantum Insider: post-quantum migration deadlines (May 2026)","https://thequantuminsider.com/2026/05/08/post-quantum-migration-timelines-government-industry-impact/"],
+  laes:["SEALSQ: Q1 2026 metrics and business update","https://www.sealsq.com/investors/news-releases/sealsq-reports-q1-2026-key-financial-and-operational-metrics-and-provides-business-update"],
+  arqq:["Finviz: Arqit first-half fiscal 2026 results","https://finviz.com/news/356288/arqit-quantum-inc-announces-financial-results-for-first-half-of-fiscal-year-2026"],
+  btq:["Quantum Computing Report: BTQ Technologies approved to list on Nasdaq","https://quantumcomputingreport.com/btq-technologies-receives-approval-to-list-on-nasdaq/"],
+  sandbox:["Quantum Computing Report: SandboxAQ raises $95M at over $5.6B","https://quantumcomputingreport.com/sandboxaq-has-raised-an-additional-95-million-at-a-company-valuation-of-over-5-6-billion/"],
+  selloff:["24/7 Wall St: IonQ, Rigetti and D-Wave down 30% in a month (July 29, 2026)","https://247wallst.com/investing/2026/07/29/ionq-rigetti-and-d-wave-quantum-are-down-30-in-a-month-is-more-pain-coming-for-quantum-computing-stocks/"],
+  insider:["Crypto Briefing: quantum insiders sold about $895M of stock (Sept 2026)","https://cryptobriefing.com/quantum-computing-stocks-insider-selling-895-million/"],
+  spac26:["Let's Data Science: how the 2026 quantum listings traded (Mar 2026)","https://letsdatascience.com/news/quantum-firms-pursue-public-listings-amid-breakthroughs-247f5aac"],
+  sept8:["24/7 Wall St: quantum stocks rally on Commerce stakes (Sept 8, 2026)","https://247wallst.com/investing/2026/09/08/quantum-stocks-rally-as-commerce-department-takes-equity-stakes-rigetti-surges-6-d-wave-climbs-5/"]
+};
+
+const LANES = [
+ {id:"parts", cls:"power", name:"Parts & tools: the picks and shovels",
+  note:"These companies sell to many qubit makers at once, so they can do well no matter which type of qubit wins.",
+  bands:[
+   {id:"P1",label:"Cooling & helium-3",plain:"Superconducting and spin qubits work only near absolute zero (−273°C), inside dilution refrigerators that need scarce helium-3."},
+   {id:"P2",label:"Chips, fabs & lasers",plain:"Factories that make qubit chips, ion traps and photonic chips, plus the lasers that control single atoms and ions."},
+   {id:"P3",label:"Control, error fixing & software",plain:"Electronics that send pulses to the qubits, fast decoders that catch and fix errors as they happen, and the programming tools."},
+   {id:"P8",label:"Post-quantum security",plain:"Not part of building quantum computers. These companies sell new encryption that a future quantum computer can't break.",coal:true}
+ ]},
+ {id:"build", cls:"hw", name:"Qubit builders, grouped by type of qubit",
+  note:"Nobody knows yet which kind of qubit wins. Each type trades off speed, accuracy and how easily it scales.",
+  bands:[
+   {id:"H1",label:"Superconducting",plain:"Tiny circuits cooled near absolute zero. Fast and made with chip-industry tools, but error-prone and wiring-hungry."},
+   {id:"H2",label:"Trapped ion",plain:"Single charged atoms held by electric fields and steered by lasers. The most accurate today, but slower."},
+   {id:"H3",label:"Neutral atom",plain:"Uncharged atoms held in place by laser 'tweezers'. Easy to reach thousands of qubits; speed and accuracy still catching up."},
+   {id:"H4",label:"Photonic",plain:"Qubits made of light, on chips from regular fabs. Easier to network, but lost photons are the big problem."},
+   {id:"H5",label:"Spin in silicon",plain:"Single electrons in silicon, made like ordinary transistors. Potentially tiny and very scalable, but early."},
+   {id:"H6",label:"Annealing",plain:"A special-purpose machine for optimization problems. Sells today, but can't run general quantum programs."}
+ ]}
+];
+
+const N = {
+ interlune:{b:"P1",n:"Interlune",t:"private · Seattle",role:"Plans to harvest helium-3 from the Moon, and source it on Earth, for quantum fridges.",
+  f:["Bluefors agreed to buy up to 10,000 liters a year of lunar helium-3, for delivery 2028–2037 (Sept 2025).","Maybell Quantum is its first commercial customer: thousands of liters a year, 2029–2035.","Also has a DOE order for 3 liters by April 2029 and an Air Force contract for US-sourced helium-3.","Helium-3 sells for roughly $2,000–15,000 a liter, and Earth's supply is tiny."],s:["he3","he3b"]},
+ bluefors:{b:"P1",n:"Bluefors",t:"private · Finland",role:"The leading maker of the dilution refrigerators that cool superconducting qubits.",
+  f:["Built IBM's KIDE cryogenic platform, first delivered in 2023.","Signed the largest lunar helium-3 purchase so far, with Interlune.","Delft Circuits' cryogenic cabling comes pre-installed in its fridges (Sept 2025)."],s:["kide","he3","delft"]},
+ maybell:{b:"P1",n:"Maybell Quantum",t:"private · Colorado",role:"Startup making smaller, simpler dilution refrigerators.",
+  f:["Installed four fridges at New Mexico's Roadrunner Quantum Lab (July 2026), where QuEra is an anchor tenant.","Interlune's first commercial helium-3 customer."],s:["maybell","he3b"]},
+ qdo:{b:"P1",n:"Quantum Design Oxford",t:"private · UK / US",role:"Oxford Instruments' former fridge business, now owned by Quantum Design.",
+  f:["Quantum Design bought Oxford Instruments' NanoScience unit for £60M; the deal was done by January 2026.","Its Proteox LX fridge cools OQC's machine at OQC's New York data center (Nov 2025)."],s:["qdo","oxoqc"]},
+ oxinst:{b:"P1",n:"Oxford Instruments",t:"LSE: OXIG · UK",role:"UK scientific-equipment maker. It sold its fridge unit but still sells chipmaking tools to qubit fabs.",
+  f:["Sold its NanoScience (dilution refrigerator) unit to Quantum Design for £60M in 2025.","Supplying an atomic-layer etch tool to Rigetti's chip fab in Fremont (May 2026).","Quantum is now a small part of the business."],s:["qdo","oxrgti"]},
+ formfactor:{b:"P1",n:"FormFactor",t:"FORM · California",role:"Chip-testing company that also sells cryogenic test systems and its own dilution fridges.",
+  f:["Makes Flatiron dilution refrigerators and cryogenic probers for testing qubit chips.","Partners with Delft Circuits on cryogenic cabling (March 2025).","Most revenue comes from probe cards for ordinary chips, including AI memory."],s:["form"]},
+ delft:{b:"P1",n:"Delft Circuits",t:"private · Netherlands",role:"Makes the flexible cryogenic cables that carry signals down to the qubits.",
+  f:["Its Cri/oFlex cabling ships inside Bluefors fridges, up to 1,536 lines each.","Also supplies FormFactor's cryogenic test systems."],s:["delft","form"]},
+
+ gfs:{b:"P2",n:"GlobalFoundries",t:"GFS · New York",role:"US chip foundry that makes PsiQuantum's photonic chips and Quantinuum's next ion traps.",
+  f:["Makes PsiQuantum's photonic chipset at Fab 8 in New York.","Will build 300mm ion traps and electronics for Quantinuum under a $100M CHIPS award (Sept 2026).","Got a $375M CHIPS letter of intent in exchange for a government equity stake (May 2026)."],s:["psiqgf","qntchips","loi"]},
+ skywater:{b:"P2",n:"SkyWater",t:"now part of IonQ · Minnesota",role:"US foundry that makes chips for several quantum companies; bought by IonQ.",
+  f:["IonQ closed its roughly $1.8B purchase on July 31, 2026.","Foundry customers include D-Wave, PsiQuantum and Silicon Quantum Computing. How a rival's ownership affects them long term is a risk to watch."],s:["ionqsky","skycust"]},
+ honeywell:{b:"P2",n:"Honeywell",t:"HON · North Carolina",role:"Industrial giant that controls Quantinuum and builds its ion traps.",
+  f:["Kept about 48% of Quantinuum's votes after the June 2026 IPO.","Manufactured the ion trap inside Quantinuum's Helios computer.","Quantum is a small part of Honeywell's earnings, so the stock mostly moves on aerospace and automation."],s:["qntgo","helios"]},
+ tower:{b:"P2",n:"Tower Semiconductor",t:"TSEM · Israel",role:"Specialty foundry making silicon-photonics parts for Xanadu.",
+  f:["Expanded its high-volume photonics manufacturing deal with Xanadu (Feb 2026).","Most of its business is chips for phones, cars and data center optics."],s:["xndutower"]},
+ monarch:{b:"P2",n:"Monarch Quantum",t:"private · US",role:"Supplies lasers and optical parts for Quantinuum's machines.",
+  f:["Named as a supplier under Quantinuum's $100M CHIPS award (Sept 2026)."],s:["qntchips"]},
+ nkt:{b:"P2",n:"NKT Photonics",t:"private · Denmark",role:"Laser maker supplying IonQ's next-generation systems.",
+  f:["Partnership with IonQ on laser systems (Nov 2024)."],s:["ionqnkt"]},
+ quantware:{b:"P2",n:"QuantWare",t:"private · Netherlands",role:"Sells ready-made superconducting qubit chips to labs and startups.",
+  f:["Raised $178M led by Intel Capital (May 2026) to build a high-volume 'KiloFab'.","Has shipped chips to more than 50 customers in 20 countries."],s:["quantware"]},
+ quanta:{b:"P2",n:"Quanta Computer",t:"2382.TW · Taiwan",role:"Taiwanese server maker (it also builds AI racks) and a strategic quantum investor.",
+  f:["Bought about $35M of Rigetti stock and committed with Rigetti to over $100M of joint R&D over five years (2025).","Invested in Quantinuum's $600M round (Sept 2025)."],s:["rgtiquanta","qnt600"]},
+
+ keysight:{b:"P3",n:"Keysight",t:"KEYS · California",role:"Test-equipment giant that also sells quantum control systems.",
+  f:["Its control system runs inside Fujitsu and RIKEN's 256-qubit computer (May 2025).","Installed a large control system at Japan's AIST G-QuAT center (July 2025).","An Nvidia NVQLink partner."],s:["keysight","nvqlink"]},
+ qm:{b:"P3",n:"Quantum Machines",t:"private · Israel",role:"The leading independent maker of qubit control systems.",
+  f:["Its OPX1000 controller is paired with Nvidia's DGX Quantum at Germany's Jülich center (Sept 2025).","Ran Rigetti's Novera chip at 99.5% two-qubit accuracy (May 2026).","A founding partner of Nvidia's Boston quantum research center; a tenant at the Illinois quantum park."],s:["qmjul","nvaqc"]},
+ qblox:{b:"P3",n:"Qblox",t:"private · Netherlands",role:"Control-electronics maker, now also building in the US.",
+  f:["Started US manufacturing in Massachusetts, shipping from April 2026.","An Nvidia NVQLink partner."],s:["qblox","nvqlink"]},
+ zurich:{b:"P3",n:"Zurich Instruments",t:"private · Switzerland",role:"Control systems for superconducting qubits.",
+  f:["Supplied control systems to Atlantic Quantum, which Google bought in October 2025.","An Nvidia NVQLink partner."],s:["zurich","atlantic"]},
+ amd:{b:"P3",n:"AMD",t:"AMD · California",role:"Its FPGA chips run real-time error correction, and it partners with IBM.",
+  f:["IBM's error-correction decoder runs in real time on an AMD FPGA (Oct 2025).","Partnership with IBM on quantum-centric supercomputing (Aug 2025).","Invested in Classiq through AMD Ventures."],s:["ibmamd","classiq"]},
+ nvidia:{b:"P3",n:"Nvidia",t:"NVDA · California",role:"Doesn't build qubits. It sells the GPUs, software and links that pair quantum computers with supercomputers.",
+  f:["NVQLink (Oct 2025) connects quantum chips to Nvidia GPUs; about 19 qubit builders and 4 control-system makers signed on.","CUDA-Q is its quantum programming platform, used by PsiQuantum, Quantinuum and others.","Its venture arm has invested in PsiQuantum, Quantinuum, QuEra and Alice & Bob.","IonQ will install the first on-site quantum computer at Nvidia's Boston research center in 2027."],s:["nvqlink","nvaqc","ionqnv","psiq"]},
+ riverlane:{b:"P3",n:"Riverlane",t:"private · UK",role:"Makes the fast decoders that find and fix qubit errors in real time.",
+  f:["Delivered its Deltaflow 2 decoder to Rigetti and Infleqtion (2025) and integrated it with OQC's machine.","Signed an MoU with Infleqtion for its Sqale computer (Sept 2026)."],s:["riverlane","rlinfq"]},
+ qctrl:{b:"P3",n:"Q-CTRL",t:"private · Australia",role:"Software that reduces errors on today's quantum computers.",
+  f:["Its Fire Opal software runs on IBM, Rigetti, OQC and Diraq machines.","Uses Nvidia AI models to tune qubits automatically (April 2026)."],s:["qctrl"]},
+ classiq:{b:"P3",n:"Classiq",t:"private · Israel",role:"Tools for writing quantum programs; reportedly in talks to go public.",
+  f:["Investors include AMD, Qualcomm and IonQ (Nov 2025); over $200M raised.","Customers include BMW, Comcast, Rolls-Royce and SoftBank.","Reported in July 2026 to be in advanced talks for a SPAC listing at $2–5B."],s:["classiq","ynet"]},
+ horizonq:{b:"P3",n:"Horizon Quantum",t:"HQ · Singapore",role:"Software for programming quantum computers, plus its own hardware testbed.",
+  f:["Began trading on Nasdaq on March 20, 2026, after merging with dMY Squared (about $500M valuation, about $120M raised).","One of the smallest listed quantum companies; only two analysts cover it."],s:["hq"]},
+
+ sealsq:{b:"P8",n:"SEALSQ",t:"LAES · Switzerland",role:"Makes security chips with post-quantum encryption built in.",
+  f:["Q1 2026 revenue about $4.1M (+200%); expects its QS7001 post-quantum chip to start producing revenue in late 2026.","Its parent, WISeKey, plans a separate quantum company, Quantisimo, via a SPAC (non-binding letter, about $575M, aimed at Q1 2027)."],s:["laes","quantisimo"]},
+ arqit:{b:"P8",n:"Arqit",t:"ARQQ · UK",role:"Sells quantum-safe encryption software.",
+  f:["Revenue was only $623K in the six months to March 2026, with $35.9M of cash in May 2026.","Very small company; the stock is extremely volatile and has no analyst target."],s:["arqq"]},
+ btq:{b:"P8",n:"BTQ Technologies",t:"BTQ · Canada",role:"Post-quantum security for blockchains and payments.",
+  f:["Moved up to the Nasdaq in Sept 2025; also trades in Canada and Frankfurt."],s:["btq"]},
+ sandboxaq:{b:"P8",n:"SandboxAQ",t:"private · California",role:"Alphabet spinout selling post-quantum security and AI simulation.",
+  f:["Valued at over $5.6B after raising another $95M (July 2025)."],s:["sandbox"]},
+
+ ibm:{b:"H1",n:"IBM",t:"IBM · New York",role:"The superconducting leader, with the clearest public roadmap to an error-corrected machine in 2029.",
+  f:["Nighthawk (120 qubits) shipped at the end of 2025; targets are 7,500 operations by end of 2026 and 1,000+ qubits in 2028.","Starling (2029): 200 error-corrected 'logical' qubits running 100M operations. Blue Jay (2033+): 2,000 logical qubits.","Expects researchers to confirm quantum advantage by the end of 2026.","Largest CHIPS letter of intent: $1B for a government equity stake (May 2026). In DARPA's QBI Stage B."],s:["ibm","ibmrm","loi","qbi"]},
+ google:{b:"H1",n:"Google Quantum AI",t:"via GOOGL · California",role:"Alphabet's quantum lab. It hit the key error-correction milestone and showed the first checkable quantum advantage.",
+  f:["Willow (Dec 2024) showed errors falling as more qubits are added, the threshold every roadmap depends on.","'Quantum Echoes' (Oct 2025, Nature) ran 13,000x faster than top supercomputers on a result that can be checked.","Added neutral atoms as a second approach (March 2026) and bought Atlantic Quantum (Oct 2025).","Its goal is about a million physical qubits; quantum is a tiny part of Alphabet."],s:["echoes","googrm","atlantic"]},
+ rigetti:{b:"H1",n:"Rigetti Computing",t:"RGTI · California",role:"Pure-play superconducting company with its own chip fab.",
+  f:["Q2 2026 revenue $5.1M (+185%); $541M of cash and no debt.","Its 108-qubit Cepheus chip reaches about 99.1% two-qubit accuracy; aims for about 1,000-qubit systems within three years.","Orders include an ~$8.4M 108-qubit system for India's C-DAC.","The US government took an equity stake: up to $100M for about 7.7M shares at $12.92 (Sept 2026)."],s:["rgti","rgtisec","chipsfin"]},
+ iqm:{b:"H1",n:"IQM",t:"IQMX · Finland",role:"Europe's leading superconducting builder; listed via SPAC in July 2026.",
+  f:["Began trading on Nasdaq July 2, 2026, at about a $1.9B valuation, through Real Asset Acquisition Corp.","Sells whole machines to supercomputing centers; its first US system went to Oak Ridge National Lab (June 2026).","Order backlog above €102M (Aug 2026). Available on AWS Braket."],s:["iqm","iqmout"]},
+ oqc:{b:"H1",n:"Oxford Quantum Circuits",t:"private · UK",role:"UK superconducting builder putting machines inside data centers.",
+  f:["Raised £260M (about $350M) led by Bullhound Capital, with £100M from the British Business Bank (June 2026).","Runs a quantum computer at its New York data center."],s:["oqc","oxoqc"]},
+ alicebob:{b:"H1",n:"Alice & Bob",t:"private · France",role:"Builds 'cat qubits' designed to need far less error correction.",
+  f:["Nvidia's venture arm joined, bringing its Series B to €100M (May 2026).","Amazon's Ocelot chip uses the same cat-qubit idea."],s:["alicebob","ocelot"]},
+ seeqc:{b:"H1",n:"SEEQC",t:"private · New York",role:"Superconducting chips with digital control built in; trying to go public.",
+  f:["Agreed to merge with Allegro Merger Corp at about $1B (Jan 2026) and also filed for a Nasdaq IPO as SEQC. Not trading yet."],s:["seeqc","seeqcs1"]},
+
+ ionq:{b:"H2",n:"IonQ",t:"IONQ · Maryland",role:"The biggest pure play by revenue, buying its way into networking, sensing, space and chipmaking.",
+  f:["Q2 2026 revenue $80.1M (+287%); 2026 guidance raised to $280–290M, not counting SkyWater.","Bought Oxford Ionics ($1.075B), SkyWater (~$1.8B), most of ID Quantique, Capella, Lightsynq, Vector Atomic and Skyloom.","About $2B of cash after the SkyWater deal; Q2 GAAP net loss of $1.87B.","Its roadmap claims 800 logical qubits in 2027 and 80,000 by 2030, far more aggressive than its peers."],s:["ionqq2","ionqqcr","ionqsky","ionqrm"]},
+ quantinuum:{b:"H2",n:"Quantinuum",t:"QNT · Colorado / UK",role:"The trapped-ion leader with the most accurate machines; went public in June 2026.",
+  f:["IPO at $60 on June 4, 2026, raising about $1.68B; Honeywell kept about 48% of the votes.","Helios (Nov 2025): 98 qubits, 99.921% two-qubit accuracy, 48 error-corrected logical qubits.","Next: Sol in 2027 and Apollo, a fault-tolerant machine, in 2029.","RIKEN was about 60% of 2025 revenue. Trailing revenue is about $23M, so the stock trades near 500 times sales.","Government equity stake of up to $100M finalized in Sept 2026."],s:["qntipo","qntbuzz","helios","qntyahoo","qntgo","chipsfin"]},
+ quantumart:{b:"H2",n:"Quantum Art",t:"private · Israel",role:"Trapped-ion startup reportedly in talks to go public.",
+  f:["Extended its Series A to $140M (April 2026).","Reported in July 2026 to be in advanced talks for a SPAC listing at $2–5B."],s:["qart","ynet"]},
+
+ quera:{b:"H3",n:"QuEra",t:"private · Boston",role:"Neutral-atom leader that grew out of Harvard and MIT research.",
+  f:["Raised over $230M from Google, SoftBank and others (Feb 2025); Nvidia invested in Sept 2025.","Installing a machine at Japan's AIST beside Nvidia GPUs; its Aquila machine is on AWS Braket.","In DARPA's QBI Stage B."],s:["quera","queranv","qbi"]},
+ atom:{b:"H3",n:"Atom Computing",t:"private · California",role:"Neutral-atom builder making the hardware for Microsoft's machines.",
+  f:["Building 'Magne' with Microsoft for Denmark: 50 logical qubits from 1,225 atoms, due late 2026 or early 2027.","Raised $100M led by Third Point (June 2026); $100M CHIPS letter of intent.","In DARPA's QBI Stage B."],s:["atom","magne","qbi"]},
+ infleqtion:{b:"H3",n:"Infleqtion",t:"INFQ · Colorado",role:"Neutral-atom computers plus quantum clocks and sensors; listed via SPAC in February 2026.",
+  f:["Began trading on the NYSE on Feb 17, 2026, through Churchill Capital X ($1.8B valuation, $550M+ raised).","Sells atomic clocks and sensors today, which bring in revenue while the computer matures.","$100M CHIPS letter of intent; works with Riverlane on error correction."],s:["infq","loi","rlinfq"]},
+ pasqal:{b:"H3",n:"Pasqal",t:"PSQL · France",role:"French neutral-atom builder; listed via SPAC in August 2026.",
+  f:["Debuted on Nasdaq Aug 28, 2026, through Bleichroeder Acquisition II, at about a $2B valuation; it closed about 40% higher on day one with about $360M of cash.","Installed a 200-qubit machine for Aramco in Saudi Arabia (Nov 2025); available on Azure Quantum.","Its roadmap targets about 100 logical qubits by 2029."],s:["pasqal","pasqaltk","aramco"]},
+
+ psiquantum:{b:"H4",n:"PsiQuantum",t:"private · California",role:"The best-funded private quantum company, betting on light-based qubits made in ordinary chip fabs.",
+  f:["Raised $1B at a $7B valuation (Sept 2025) from BlackRock, Temasek, Baillie Gifford and Nvidia's venture arm.","Building sites in Brisbane (A$940M Australian government package) and Chicago (anchor of Illinois' $500M quantum park).","Brisbane is reported up to a year late, now looking closer to 2030.","Chips made by GlobalFoundries; $100M CHIPS letter of intent; in the final phase of DARPA's US2QC program."],s:["psiq","psiqlate","iqmp","psiqgf","qbi"]},
+ xanadu:{b:"H4",n:"Xanadu",t:"XNDU · Toronto",role:"Canadian photonic builder; listed via SPAC in March 2026.",
+  f:["Began trading on Nasdaq and the TSX on March 27, 2026, through Crane Harbor ($3.6B valuation, about $302M raised).","Down roughly 55% over the past year; analyst targets ($16–43) haven't caught up with the price.","Chips made with Tower Semiconductor; in DARPA's QBI Stage B."],s:["xndu","xnduval","xndutower","qbi"]},
+ photonic:{b:"H4",n:"Photonic Inc.",t:"private · Canada",role:"Links spin qubits in silicon together with light.",
+  f:["Raised over $200M at a $2B valuation (May 2026).","In DARPA's QBI Stage B."],s:["photonic","qbi"]},
+ qci:{b:"H4",n:"Quantum Computing Inc.",t:"QUBT · New Jersey",role:"Makes photonic chips and optical machines; today it looks more like a small chip foundry than a quantum leader.",
+  f:["Q2 2026 revenue $5.6M, with about $1.3B of cash and investments from large share sales.","Spent about $180M in 2026 buying Luminar Semiconductor, NuCrypt and NHanced Semiconductors."],s:["qubt"]},
+
+ intel:{b:"H5",n:"Intel",t:"INTC · Oregon",role:"Makes silicon spin-qubit chips in its own fabs and invests in QuantWare.",
+  f:["Spin qubits look like ordinary transistors, so Intel can use its normal factories; it released its 12-qubit Tunnel Falls chip to researchers in 2023.","Intel Capital led QuantWare's $178M round (May 2026).","Quantum is a tiny part of Intel; the stock moves on its foundry and PC business."],s:["quantware"]},
+ diraq:{b:"H5",n:"Diraq",t:"private · Australia",role:"Silicon spin qubits designed for standard chip fabs.",
+  f:["Up to $38M CHIPS letter of intent (May 2026); in DARPA's QBI Stage B; a tenant at the Illinois quantum park."],s:["loi","qbi","iqmp"]},
+ sqc:{b:"H5",n:"Silicon Quantum Computing",t:"private · Australia",role:"Builds qubits from single atoms placed in silicon.",
+  f:["In DARPA's QBI Stage B; a SkyWater foundry customer."],s:["qbi","skycust"]},
+
+ dwave:{b:"H6",n:"D-Wave Quantum",t:"QBTS · California",role:"Sells annealing machines for optimization today, and is adding general-purpose gate-model computers.",
+  f:["Q2 2026 revenue $3.1M, but first-half bookings were $35.5M, including a $20M system for Florida Atlantic University.","Bought Quantum Circuits for $550M (Jan 2026) to get superconducting gate-model qubits; its first system is due in 2026.","$546M of cash; government equity stake of up to $100M finalized Sept 2026.","Claimed 'quantum supremacy on a useful problem' (Science, March 2025); some researchers disputed it."],s:["qbts","qbtsqci","dwave8k","qbtssup"]},
+
+ amazon:{b:"R",n:"Amazon (AWS Braket)",t:"AMZN · Seattle",role:"Rents out other companies' quantum computers and is building its own Ocelot chip.",
+  f:["Braket offers machines from AQT, IonQ, IQM, QuEra and Rigetti (Rigetti's 108-qubit chip was added April 2026).","Ocelot (Feb 2025) uses cat qubits and claims up to 90% less error-correction overhead.","Quantum is tiny for Amazon; AI and AWS drive the stock."],s:["braket","ocelot"]},
+ microsoft:{b:"R",n:"Microsoft (Azure Quantum)",t:"MSFT · Redmond",role:"Rents out IonQ, Pasqal, Quantinuum and Rigetti machines, and is developing its own Majorana qubits.",
+  f:["Majorana 2 (June 2026) claims 1,000x more stable qubits and moved its target for a scalable machine from 2033 to 2029. Critics say the evidence is still thin.","Building 'Magne' with Atom Computing for Denmark; a long-time Quantinuum partner.","In the final phase of DARPA's US2QC program, alongside PsiQuantum."],s:["azure","maj2","magne","qbi"]},
+
+ usgov:{b:"U",n:"US government",t:"Commerce · DARPA · DOE",role:"The biggest single funder, and now also a shareholder.",
+  f:["Commerce signed CHIPS letters of intent for about $2.0B across nine companies in exchange for equity stakes (May 2026). D-Wave, Rigetti and Quantinuum were finalized at up to $100M each (Sept 8).","DARPA's Quantum Benchmarking Initiative is testing whether a useful machine is possible by 2033; 11 companies are in Stage B.","DOE renewed five national quantum research centers with $625M (Nov 2025)."],s:["loi","chipsfin","qbi","doe"]},
+ jpmorgan:{b:"U",n:"JPMorgan Chase",t:"JPM · bank",role:"Wall Street's most active quantum user.",
+  f:["Generated certified random numbers on Quantinuum's H2 machine (Nature, March 2025).","An investor in Quantinuum."],s:["jpm","qnt600"]},
+ hsbc:{b:"U",n:"HSBC",t:"HSBC · bank",role:"Tested quantum bond trading on IBM hardware.",
+  f:["Reported up to 34% better predictions of whether bond trades would fill (Sept 2025)."],s:["hsbc"]},
+ bmw:{b:"U",n:"BMW",t:"carmaker",role:"Uses quantum computers for materials and engineering research.",
+  f:["Multi-year deal with Quantinuum covering Helios, Sol and Apollo (May 2026).","Also a Classiq customer."],s:["qntbmw","classiq"]},
+ astrazeneca:{b:"U",n:"AstraZeneca",t:"drugmaker",role:"Testing quantum chemistry for drug discovery.",
+  f:["With IonQ, AWS and Nvidia, ran a chemistry workflow that IonQ says was over 20x faster (June 2025)."],s:["ionqaz"]},
+ aramco:{b:"U",n:"Aramco",t:"oil · Saudi Arabia",role:"Bought Saudi Arabia's first quantum computer.",
+  f:["Installed Pasqal's 200-qubit machine in Dhahran (Nov 2025); its venture arm invests in Pasqal."],s:["aramco"]},
+ riken:{b:"U",n:"RIKEN (Japan)",t:"national lab",role:"Japan's national research institute and a big buyer of machines.",
+  f:["Hosts IBM's first Quantum System Two outside the US, linked to the Fugaku supercomputer (June 2025).","Was about 60% of Quantinuum's 2025 revenue.","Fujitsu and RIKEN's 256-qubit machine uses Keysight control electronics."],s:["ibmriken","qntgo","keysight"]},
+ labs:{b:"U",n:"Labs & universities",t:"Oak Ridge · Jülich · C-DAC · FAU",role:"Research centers that buy whole machines to sit beside their supercomputers.",
+  f:["Oak Ridge National Lab: the first US IQM system (June 2026).","Florida Atlantic University: a $20M D-Wave Advantage2.","India's C-DAC: an ~$8.4M Rigetti 108-qubit system.","Germany's Jülich: a D-Wave system, plus Quantum Machines control with Nvidia."],s:["iqmout","qbts","rgtisec","qmjul"]},
+ qunorth:{b:"U",n:"QuNorth (Denmark)",t:"EIFO · Novo Nordisk Foundation",role:"Danish program buying the Magne machine from Atom Computing and Microsoft.",
+  f:["€80M from Denmark's EIFO and the Novo Nordisk Foundation for Magne: 50 logical qubits, due late 2026 or early 2027."],s:["magne"]}
+};
+
+const S = {
+ ionq:{tk:"IONQ",risk:4,mv:"−39% in the month to July 29",
+  bull:"The most revenue of any pure play, and growing fast; plenty of cash; owns its own fab (SkyWater) and a networking business; first quantum computer at Nvidia's research center.",
+  bear:"Most of the growth comes from acquisitions, losses are large, and the roadmap promises far more than anyone has shown. Insiders have been big sellers.",
+  cat:"Q3 results in early November; SkyWater's first full quarter; progress toward its 256-qubit system."},
+ quantinuum:{tk:"QNT",risk:4,mv:"about 27% below its $60 IPO price",
+  bull:"The most accurate machines in the industry, a clear path to fault tolerance in 2029, Honeywell and JPMorgan behind it, and $1.68B of IPO cash.",
+  bear:"About $23M of trailing revenue against an $11–12B market value (around 500 times sales), and RIKEN alone was about 60% of 2025 revenue.",
+  cat:"Its first earnings reports as a public company; Sol in 2027; the end of the IPO lock-up (usually about six months after listing), when insiders can start selling."},
+ rigetti:{tk:"RGTI",risk:4,mv:"−30% in the month to July 29",
+  bull:"Owns its fab, has $541M of cash and no debt, the US government is now a shareholder, and Quanta is a partner.",
+  bear:"Revenue is tiny ($5M a quarter) and its accuracy trails IBM and Google, so it has to win on cost or speed.",
+  cat:"Delivering the C-DAC system and progress toward its goal of about 1,000 qubits."},
+ dwave:{tk:"QBTS",risk:4,mv:"−30% in the month to July 29",
+  bull:"The only company selling quantum machines for practical optimization today, with $35.5M of first-half bookings and a gate-model computer from Quantum Circuits on the way.",
+  bear:"Quarterly revenue is still about $3M; annealing can't run general quantum programs, and its supremacy claim was disputed.",
+  cat:"Converting bookings to revenue; the first Quantum Circuits gate-model system in 2026."},
+ qci:{tk:"QUBT",risk:4,mv:"−24% in the month to July 29",
+  bull:"About $1.3B of cash and a growing photonic chip foundry business after its 2026 acquisitions.",
+  bear:"Small, early revenue, and its market value has relied on share sales; it is the furthest from a useful quantum computer among the big four pure plays.",
+  cat:"Revenue from the NHanced and Luminar fabs."},
+ infleqtion:{tk:"INFQ",risk:4,
+  bull:"Already sells clocks and sensors, has $100M of government backing on the way, and listed with over $550M of cash.",
+  bear:"Few analysts cover it, and SPAC listings often keep falling after the first year.",
+  cat:"First quarters of public results; finalizing its CHIPS award."},
+ xanadu:{tk:"XNDU",risk:4,
+  bull:"Photonic chips can be made in existing fabs and networked easily; it is in DARPA's Stage B.",
+  bear:"Down about 55% over the past year. Only 3–4 analysts cover it, so the average target is easily skewed.",
+  cat:"DARPA QBI progress and new manufacturing milestones with Tower."},
+ horizonq:{tk:"HQ",risk:4,
+  bull:"Software sells across every hardware type.",
+  bear:"Tiny company with only two analysts covering it.",
+  cat:"Customer wins for its programming tools."},
+ iqm:{tk:"IQMX",risk:4,
+  bull:"Europe's leader in selling whole machines to supercomputing centers, with over €100M in orders.",
+  bear:"Only one analyst target so far, and SPAC shares tend to drift after listing.",
+  cat:"Its first full quarters as a public company; more US system sales."},
+ pasqal:{tk:"PSQL",risk:4,
+  bull:"A neutral-atom leader with a 200-qubit machine installed at Aramco and about $360M of cash.",
+  bear:"Just listed, so there's little analyst coverage and the stock can swing hard.",
+  cat:"Its 250-qubit advantage demonstration targeted for 2026."},
+ ibm:{tk:"IBM",risk:1,
+  bull:"The clearest dated roadmap to an error-corrected computer (2029), the biggest CHIPS letter of intent ($1B), and a profitable software and consulting business underneath.",
+  bear:"Quantum is a small part of IBM, so even big breakthroughs move the stock only a little.",
+  cat:"Kookaburra and any confirmed quantum-advantage results by the end of 2026."},
+ google:{tk:"GOOGL",risk:1,
+  bull:"The strongest quantum science team, with both of the big 2024–2025 milestones.",
+  bear:"Quantum is a rounding error inside Alphabet; you're really buying search, cloud and AI.",
+  cat:"Its next roadmap milestone, a long-lived logical qubit."},
+ microsoft:{tk:"MSFT",risk:1,
+  bull:"Sells access to many machines through Azure and has its own Majorana bet, which would be a big edge if it works.",
+  bear:"Majorana results are disputed, and quantum barely affects Microsoft's earnings.",
+  cat:"Delivery of Magne in Denmark; peer review of Majorana 2."},
+ amazon:{tk:"AMZN",risk:1,
+  bull:"Braket rents out most of the leading machines, and Ocelot is a credible in-house design.",
+  bear:"Quantum is negligible next to AWS and retail.",
+  cat:"A next-generation Ocelot chip."},
+ nvidia:{tk:"NVDA",risk:2,
+  bull:"Wins whichever qubit type wins, because every quantum computer needs GPUs for control, error fixing and simulation. Also owns stakes in PsiQuantum, Quantinuum and QuEra.",
+  bear:"Quantum is tiny for Nvidia; the stock trades on AI data center spending.",
+  cat:"NVQLink adoption; the IonQ system arriving in 2027."},
+ amd:{tk:"AMD",risk:2,
+  bull:"Its FPGAs already run IBM's real-time error correction, and it partners with IBM on quantum supercomputing.",
+  bear:"Quantum is a tiny slice; AMD moves on AI GPUs and CPUs.",
+  cat:"Whether IBM keeps using AMD chips as error correction scales up."},
+ intel:{tk:"INTC",risk:3,
+  bull:"Spin qubits could be made in Intel's normal fabs at huge scale.",
+  bear:"Intel's quantum program is small and quiet, and the stock depends on its foundry turnaround.",
+  cat:"Any new spin-qubit chip or quantum foundry customer."},
+ honeywell:{tk:"HON",risk:1,
+  bull:"Holds about 48% of Quantinuum's votes, so it owns a big piece of the trapped-ion leader with a profitable industrial business underneath.",
+  bear:"Quantinuum's falling share price lowers the value of that stake.",
+  cat:"Quantinuum's share price and lock-up expiry."},
+ gfs:{tk:"GFS",risk:2,
+  bull:"Makes chips for PsiQuantum and Quantinuum, has a $375M CHIPS letter of intent, and is the main US-owned foundry.",
+  bear:"Quantum is small; most revenue comes from chips for phones, cars and industry.",
+  cat:"Finalizing its CHIPS award; PsiQuantum's production ramp."},
+ keysight:{tk:"KEYS",risk:1,
+  bull:"A profitable test-equipment leader that sells quantum control systems to labs and Japan's biggest projects.",
+  bear:"Quantum is a small part of revenue.",
+  cat:"New quantum control-system orders."},
+ formfactor:{tk:"FORM",risk:2,
+  bull:"Sells fridges and cryogenic test systems to qubit makers, and its main business benefits from AI memory testing.",
+  bear:"Quantum is a small part of revenue; it is cyclical with chip spending.",
+  cat:"Probe-card demand from HBM memory makers."},
+ oxinst:{tk:"OXIG.L",risk:2,cur:"GBp",
+  bull:"Still sells tools to qubit fabs, such as Rigetti's.",
+  bear:"Sold its quantum fridge business in 2025, so its quantum exposure is now small.",
+  cat:"Orders from quantum and semiconductor customers.",note:"Priced in British pence (GBp)."},
+ quanta:{tk:"2382.TW",risk:2,cur:"TWD",
+  bull:"A profitable AI server builder with stakes in Rigetti and Quantinuum.",
+  bear:"Quantum is a rounding error; it moves on AI server orders.",
+  cat:"AI rack shipments.",note:"Priced in Taiwan dollars."},
+ tower:{tk:"TSEM",risk:2,
+  bull:"A specialty foundry for photonics, which both photonic quantum and AI optics need.",
+  bear:"Quantum is a tiny customer group.",
+  cat:"Silicon-photonics orders for AI data centers."},
+ sealsq:{tk:"LAES",risk:4,
+  bull:"Government deadlines to switch to post-quantum encryption (2027–2035) create demand for chips like its QS7001.",
+  bear:"Tiny revenue and only a couple of analysts; it has a history of issuing shares.",
+  cat:"QS7001 production revenue in late 2026; the Quantisimo SPAC."},
+ arqit:{tk:"ARQQ",risk:4,
+  bull:"Sells encryption that governments must eventually adopt.",
+  bear:"Revenue is tiny and there's no analyst target.",cat:"New government contracts."},
+ btq:{tk:"BTQ",risk:4,bull:"Post-quantum security for crypto and payments.",bear:"Very small and early.",cat:"Commercial customers."},
+ skywater:{via:"Now part of IonQ.",alias:"ionq"},
+ psiquantum:{via:"Private. Indirect exposure: Nvidia (NVDA) invested through its venture arm, and GlobalFoundries (GFS) makes its chips."},
+ quera:{via:"Private. Indirect exposure through Alphabet (GOOGL) and Nvidia (NVDA), both investors."},
+ atom:{via:"Private. Its main partner is Microsoft (MSFT)."},
+ alicebob:{via:"Private. Nvidia (NVDA) is an investor."},
+ quantware:{via:"Private. Intel (INTC) led its latest round."},
+ classiq:{via:"Private, reportedly in SPAC talks. AMD and IonQ are investors."},
+ quantumart:{via:"Private, reportedly in SPAC talks."},
+ seeqc:{via:"Private. Merger with Allegro Merger Corp and an IPO filing (SEQC) are pending."},
+ oqc:{via:"Private."}, bluefors:{via:"Private."}, qm:{via:"Private."}, riverlane:{via:"Private."}, qctrl:{via:"Private."},
+ qdo:{via:"Private (owned by Quantum Design)."}, photonic:{via:"Private."}, diraq:{via:"Private."}, sandboxaq:{via:"Private."}
+};
+
+const E = [
+ ["interlune","bluefors","d","lunar helium-3, up to 10,000 L a year from 2028"],
+ ["interlune","maybell","d","helium-3 for 2029–2035; first customer"],
+ ["delft","bluefors","d","cryogenic cabling built into its fridges"],
+ ["delft","formfactor","d","cabling for cryogenic test systems"],
+ ["bluefors","ibm","d","KIDE cryogenic platform"],
+ ["oxinst","qdo","p","sold its fridge unit for £60M (2025)"],
+ ["qdo","oqc","d","Proteox LX fridge for its New York site"],
+ ["oxinst","rigetti","d","atomic-layer etch tool for its fab (2026)"],
+ ["gfs","psiquantum","d","makes its photonic chips"],
+ ["gfs","quantinuum","d","300mm ion traps under a $100M CHIPS award"],
+ ["honeywell","quantinuum","d","builds the Helios ion trap; ~48% of votes"],
+ ["monarch","quantinuum","d","lasers and optics"],
+ ["nkt","ionq","d","laser systems"],
+ ["tower","xanadu","d","high-volume photonics manufacturing"],
+ ["ionq","skywater","p","bought it; closed July 2026"],
+ ["skywater","dwave","d","foundry"],
+ ["skywater","psiquantum","d","foundry"],
+ ["skywater","sqc","d","foundry"],
+ ["intel","quantware","p","Intel Capital led its $178M round"],
+ ["quanta","rigetti","p","~$35M stake plus $100M+ joint R&D"],
+ ["quanta","quantinuum","p","investor (Sept 2025)"],
+ ["keysight","riken","d","control system for the 256-qubit machine"],
+ ["qm","labs","d","OPX1000 controller with Nvidia at Jülich"],
+ ["zurich","google","d","control systems for Atlantic Quantum, now Google's"],
+ ["amd","ibm","d","FPGAs run its real-time error decoder"],
+ ["amd","classiq","p","investor"],
+ ["ionq","classiq","p","investor"],
+ ["riverlane","rigetti","d","Deltaflow 2 error decoder"],
+ ["riverlane","infleqtion","d","decoder; MoU Sept 2026"],
+ ["riverlane","oqc","d","Deltaflow 2 error decoder"],
+ ["qctrl","ibm","d","Fire Opal error-reduction software"],
+ ["qctrl","rigetti","d","Fire Opal error-reduction software"],
+ ["classiq","bmw","d","quantum programming software"],
+ ["nvidia","quantinuum","d","GPUs linked to Helios via NVQLink; investor"],
+ ["nvidia","psiquantum","p","CUDA-Q software; investor"],
+ ["nvidia","quera","p","investor (Sept 2025)"],
+ ["nvidia","alicebob","p","investor (May 2026)"],
+ ["ionq","nvidia","d","first on-site QPU at Nvidia's quantum center (2027)"],
+ ["google","quera","p","investor in its $230M round"],
+ ["ionq","amazon","d","on AWS Braket"],
+ ["rigetti","amazon","d","on AWS Braket"],
+ ["iqm","amazon","d","on AWS Braket"],
+ ["quera","amazon","d","on AWS Braket"],
+ ["ionq","microsoft","d","on Azure Quantum"],
+ ["quantinuum","microsoft","d","on Azure; joint logical-qubit work"],
+ ["pasqal","microsoft","d","on Azure Quantum"],
+ ["rigetti","microsoft","d","on Azure Quantum"],
+ ["atom","qunorth","d","Magne hardware"],
+ ["microsoft","qunorth","d","Magne software and error correction"],
+ ["quantinuum","jpmorgan","d","certified randomness; JPM is an investor"],
+ ["quantinuum","bmw","d","multi-year access to Helios, Sol and Apollo"],
+ ["quantinuum","riken","d","about 60% of its 2025 revenue"],
+ ["ibm","hsbc","d","bond-trading trial"],
+ ["ibm","riken","d","Quantum System Two beside Fugaku"],
+ ["ionq","astrazeneca","d","chemistry workflow with AWS and Nvidia"],
+ ["pasqal","aramco","d","200-qubit machine in Dhahran"],
+ ["iqm","labs","d","first US system, at Oak Ridge"],
+ ["dwave","labs","d","$20M Advantage2 for Florida Atlantic Univ."],
+ ["rigetti","labs","d","108-qubit system for India's C-DAC"],
+ ["usgov","ibm","p","$1B CHIPS equity letter of intent"],
+ ["usgov","gfs","p","$375M CHIPS equity letter of intent"],
+ ["usgov","dwave","p","up to $100M for equity, finalized"],
+ ["usgov","rigetti","p","up to $100M for equity, finalized"],
+ ["usgov","quantinuum","p","up to $100M for equity, finalized"],
+ ["usgov","psiquantum","p","$100M letter of intent"],
+ ["usgov","infleqtion","p","$100M letter of intent"],
+ ["usgov","atom","p","$100M letter of intent"],
+ ["usgov","diraq","p","up to $38M letter of intent"]
+];
+
+const BUYERS = ["usgov","jpmorgan","hsbc","bmw","astrazeneca","aramco","riken","labs","qunorth"];
+const RBAND = ["amazon","microsoft"];
+const GROUP = {P1:"Parts & tools",P2:"Parts & tools",P3:"Control & software",P8:"Post-quantum security",H1:"Qubit makers",H2:"Qubit makers",H3:"Qubit makers",H4:"Qubit makers",H5:"Qubit makers",H6:"Qubit makers",R:"Big tech",U:"Customers"};
+N.ibm.g="Big tech"; N.google.g="Big tech"; N.intel.g="Big tech"; N.nvidia.g="Big tech"; N.amd.g="Big tech"; N.honeywell.g="Big tech";
+const RISK = ["","Lower","Medium","High","Very high"];
+
+const THEMES = [
+ {t:"Big companies with a quantum lab",ids:["ibm","google","honeywell","microsoft","amazon"],risk:1,
+  why:"Quantum is a small slice of these businesses, so they won't double on a breakthrough, but they also won't go to zero if useful quantum computers take until the 2030s. IBM has the clearest roadmap, Google the strongest science, and Honeywell holds about 48% of Quantinuum's votes.",
+  watch:"IBM's quantum-advantage claims by the end of 2026, Microsoft's Majorana evidence, and Quantinuum's share price feeding into Honeywell."},
+ {t:"The pure plays",ids:["ionq","quantinuum","rigetti","dwave","qci"],risk:4,
+  why:"These rise and fall on quantum news alone. After the July selloff, analysts' average targets sit 50–150% above prices, but revenue is tiny next to their market values: Quantinuum trades near 500 times sales. IonQ has by far the most revenue, Quantinuum the most accurate machines, and Rigetti, D-Wave and Quantinuum now have the US government as a shareholder.",
+  watch:"Q3 results in early November, new share sales that dilute holders, and insider selling."},
+ {t:"The 2026 SPAC class",ids:["infleqtion","xanadu","iqm","pasqal","horizonq"],risk:4,
+  why:"Five quantum companies listed through SPACs this year. SPACs let companies go public earlier than a normal IPO, and many keep falling after they list. Xanadu is down about 55% over the past year. Few analysts cover these, so a single target can swing the average.",
+  watch:"Lock-up expiries when early holders can sell, cash burn, and whether 2026 orders turn into revenue."},
+ {t:"Picks and shovels",ids:["nvidia","keysight","gfs","formfactor","amd","tower"],risk:2,
+  why:"They sell to every type of qubit, so they don't need to pick the winner, and their main businesses are profitable. Quantum is small for each one, so treat it as a free option on top of the core business rather than the reason to buy.",
+  watch:"NVQLink adoption, GlobalFoundries' government-backed quantum manufacturing, and new control-system orders."},
+ {t:"Post-quantum security",ids:["sealsq","arqit","btq"],risk:4,
+  why:"Whether or not quantum computers turn useful for business soon, governments have set deadlines from 2027 to 2035 to replace today's encryption, so that spending happens anyway. But these listed names are tiny, and much of the money may go to big security and chip companies instead.",
+  watch:"SEALSQ's QS7001 chip revenue in late 2026 and the NSA's 2027 deadline for new systems."},
+ {t:"Owning the private leaders indirectly",ids:["nvidia","google","honeywell","quanta","intel"],risk:2,
+  why:"You can't buy PsiQuantum, QuEra, Atom Computing or Alice & Bob directly. Nvidia has invested in PsiQuantum, QuEra, Alice & Bob and Quantinuum; Alphabet in QuEra; Quanta in Rigetti and Quantinuum; Intel in QuantWare. Each stake is small compared with the company that owns it.",
+  watch:"New private rounds at higher prices, which would lift these stakes on paper."}
+];
+
+const UI = {
+  topic:"Quantum computing · supply chain & stocks",
+  rband:["Big tech clouds","Most customers rent quantum computers over the internet instead of buying one. Amazon and Microsoft resell other companies' machines and are also building their own."],
+  buyers:["Customers &amp; funders","Who pays for quantum computing today: governments, national labs, banks, drugmakers and carmakers."],
+  bandR:"Cloud access", bandU:"Customer or funder",
+  laneTxt:{u:"Customer or funder",dc:"Cloud",power:"Parts & tools",coal:"Post-quantum security",hw:"Qubit builder"},
+  intro:["The pill on each company is the gap between its latest price and the average analyst target. Quantum targets are unusually far from prices, so read them with extra caution.","Companies without a pill are private or have no analyst target; the panel says how to get exposure, if any.","Dashed lines are investments, ownership or government letters of intent; solid lines are supply, sales or service deals."],
+  filters:["All","Qubit makers","Parts & tools","Control & software","Big tech","Post-quantum security"],
+  start:"quantinuum",
+  noticeTail:"Quantum targets are especially unreliable: few analysts cover these stocks, and many targets haven't caught up with this year's price drops."
+};
+
+/* Listing history for the 2026 class (reference = IPO price, or the $10 a SPAC share starts at) */
+const LISTINGS = [
+ {id:"quantinuum",how:"IPO",when:"June 4, 2026",ref:60,val:"about $14–16B",with:"traditional IPO, $1.68B raised"},
+ {id:"infleqtion",how:"SPAC",when:"Feb 17, 2026",ref:10,val:"$1.8B",with:"Churchill Capital Corp X"},
+ {id:"horizonq",how:"SPAC",when:"Mar 20, 2026",ref:10,val:"about $500M",with:"dMY Squared"},
+ {id:"xanadu",how:"SPAC",when:"Mar 27, 2026",ref:10,val:"$3.6B",with:"Crane Harbor Acquisition"},
+ {id:"iqm",how:"SPAC",when:"July 2, 2026",ref:10,val:"about $1.9B",with:"Real Asset Acquisition"},
+ {id:"pasqal",how:"SPAC",when:"Aug 28, 2026",ref:10,val:"about $2B",with:"Bleichroeder Acquisition II"}
+];
+
+
+/* price snapshot baked in at build time (Oct 7, 2026, 11:56am Pacific); replaced by live data when it loads */
+const SNAP = {"cameco":{"px":89.15,"avg":126.7771,"lo":83.0955,"hi":169.0442,"n":11,"r":"Buy","fpe":49.0684,"cur":"USD","chg1d":-4.16},"uec":{"px":9.475,"avg":16.1182,"lo":10.0,"hi":26.75,"n":11,"r":"Buy","fpe":null,"cur":"USD","chg1d":-6.28},"bhp":{"px":85.355,"avg":77.5833,"lo":61.5,"hi":96.0,"n":6,"r":"Hold","fpe":18.2631,"cur":"USD","chg1d":-1.89},"sols":{"px":60.075,"avg":79.125,"lo":65.0,"hi":86.0,"n":8,"r":"Strong Buy","fpe":17.8045,"cur":"USD","chg1d":-1.95},"centrus":{"px":146.6219,"avg":247.3982,"lo":168.77,"hi":340.0,"n":17,"r":"Buy","fpe":38.3569,"cur":"USD","chg1d":-4.72},"aspi":{"px":2.765,"avg":13.0,"lo":11.0,"hi":15.0,"n":3,"r":"Strong Buy","fpe":null,"cur":"USD","chg1d":-2.98},"bwxt":{"px":141.995,"avg":216.4444,"lo":165.0,"hi":290.0,"n":16,"r":"Buy","fpe":27.1494,"cur":"USD","chg1d":-2.54},"constellation":{"px":299.38,"avg":341.532,"lo":290.0,"hi":395.0,"n":20,"r":"Buy","fpe":22.4757,"cur":"USD","chg1d":-0.34},"vistra":{"px":167.1301,"avg":210.25,"lo":106.0,"hi":305.0,"n":20,"r":"Strong Buy","fpe":16.045,"cur":"USD","chg1d":4.13},"talen":{"px":379.21,"avg":455.6471,"lo":307.0,"hi":560.0,"n":17,"r":"Buy","fpe":12.3301,"cur":"USD","chg1d":1.63},"nextera":{"px":76.985,"avg":97.421,"lo":56.0,"hi":114.0,"n":19,"r":"Buy","fpe":17.5365,"cur":"USD","chg1d":-1.15},"xenergy":{"px":14.2,"avg":34.375,"lo":9.0,"hi":57.0,"n":8,"r":"Buy","fpe":null,"cur":"USD","chg1d":-8.09},"oklo":{"px":36.765,"avg":75.775,"lo":14.0,"hi":130.0,"n":20,"r":"Buy","fpe":null,"cur":"USD","chg1d":-4.63},"tsmc":{"px":472.385,"avg":555.0094,"lo":440.0,"hi":700.0,"n":20,"r":"Strong Buy","fpe":21.5454,"cur":"USD","chg1d":-2.06},"skhynix":{"px":178.03,"avg":252.2143,"lo":152.0,"hi":355.0,"n":14,"r":"Buy","fpe":5.1639,"cur":"USD","chg1d":-2.48},"micron":{"px":1086.58,"avg":1535.5652,"lo":361.0,"hi":2200.0,"n":46,"r":"Strong Buy","fpe":5.2662,"cur":"USD","chg1d":3.92},"nvidia":{"px":236.72,"avg":328.7169,"lo":180.0,"hi":515.0,"n":59,"r":"Strong Buy","fpe":14.8744,"cur":"USD","chg1d":-1.05},"amd":{"px":644.22,"avg":636.208,"lo":365.0,"hi":1250.0,"n":50,"r":"Strong Buy","fpe":40.976,"cur":"USD","chg1d":-0.8},"broadcom":{"px":373.81,"avg":531.3149,"lo":215.88,"hi":715.0,"n":47,"r":"Strong Buy","fpe":19.2747,"cur":"USD","chg1d":-0.53},"marvell":{"px":282.57,"avg":293.8774,"lo":210.0,"hi":450.0,"n":43,"r":"Strong Buy","fpe":41.8662,"cur":"USD","chg1d":-1.55},"dell":{"px":579.6756,"avg":585.96,"lo":480.0,"hi":735.0,"n":25,"r":"Buy","fpe":19.9084,"cur":"USD","chg1d":0.99},"supermicro":{"px":44.865,"avg":42.375,"lo":15.0,"hi":60.0,"n":16,"r":"Hold","fpe":8.4239,"cur":"USD","chg1d":3.23},"gevernova":{"px":994.14,"avg":1230.341,"lo":940.0,"hi":1450.0,"n":33,"r":"Buy","fpe":39.4896,"cur":"USD","chg1d":-3.41},"eaton":{"px":429.485,"avg":481.5489,"lo":333.0,"hi":534.0,"n":26,"r":"Buy","fpe":26.4362,"cur":"USD","chg1d":-3.51},"vertiv":{"px":244.01,"avg":337.4286,"lo":236.0,"hi":427.0,"n":28,"r":"Strong Buy","fpe":26.5849,"cur":"USD","chg1d":-3.61},"peabody":{"px":24.785,"avg":31.5833,"lo":27.5,"hi":36.0,"n":6,"r":"Buy","fpe":8.6863,"cur":"USD","chg1d":-2.54},"core":{"px":89.09,"avg":109.5,"lo":105.0,"hi":118.0,"n":4,"r":"Buy","fpe":13.4071,"cur":"USD","chg1d":-1.24},"oracle":{"px":144.265,"avg":237.9742,"lo":110.0,"hi":400.0,"n":41,"r":"Buy","fpe":13.1184,"cur":"USD","chg1d":-0.35},"coreweave":{"px":87.91,"avg":140.5526,"lo":39.0,"hi":278.0,"n":38,"r":"Buy","fpe":null,"cur":"USD","chg1d":-4.15},"nebius":{"px":235.23,"avg":282.5263,"lo":84.0,"hi":410.0,"n":19,"r":"Buy","fpe":null,"cur":"USD","chg1d":-5.86},"iren":{"px":38.74,"avg":78.1389,"lo":40.0,"hi":139.0,"n":18,"r":"Buy","fpe":null,"cur":"USD","chg1d":-6.15},"apld":{"px":24.035,"avg":65.3667,"lo":22.0,"hi":93.0,"n":15,"r":"Strong Buy","fpe":null,"cur":"USD","chg1d":-5.15},"equinix":{"px":1037.76,"avg":1234.1936,"lo":1060.0,"hi":1380.0,"n":31,"r":"Strong Buy","fpe":56.0119,"cur":"USD","chg1d":-0.92},"dlr":{"px":181.69,"avg":223.4375,"lo":190.0,"hi":250.0,"n":32,"r":"Strong Buy","fpe":65.7801,"cur":"USD","chg1d":-1.6},"spacex":{"px":167.035,"avg":227.5385,"lo":140.0,"hi":450.0,"n":26,"r":"Buy","fpe":86.7476,"cur":"USD","chg1d":-2.84},"echostar":{"px":97.71,"avg":131.4444,"lo":103.0,"hi":156.0,"n":9,"r":"Strong Buy","fpe":4.2987,"cur":"USD","chg1d":-2.3},"caterpillar":{"px":811.44,"avg":970.7985,"lo":575.0,"hi":1155.0,"n":26,"r":"Buy","fpe":25.0205,"cur":"USD","chg1d":-6.02},"tesla":{"px":377.31,"avg":396.411,"lo":128.11,"hi":600.0,"n":38,"r":"Buy","fpe":175.8472,"cur":"USD","chg1d":-0.89},"arista":{"px":216.1,"avg":242.2072,"lo":190.0,"hi":289.0,"n":29,"r":"Strong Buy","fpe":41.5418,"cur":"USD","chg1d":0.34},"credo":{"px":219.175,"avg":279.0931,"lo":185.0,"hi":315.0,"n":20,"r":"Strong Buy","fpe":22.6172,"cur":"USD","chg1d":-0.75},"coherent":{"px":333.95,"avg":412.5201,"lo":280.0,"hi":500.0,"n":23,"r":"Buy","fpe":23.7762,"cur":"USD","chg1d":-1.3},"lumentum":{"px":1112.885,"avg":1161.9557,"lo":820.0,"hi":1400.0,"n":26,"r":"Strong Buy","fpe":31.2908,"cur":"USD","chg1d":-1.81},"corning":{"px":163.985,"avg":187.7059,"lo":129.0,"hi":238.0,"n":17,"r":"Buy","fpe":37.5393,"cur":"USD","chg1d":-2.95},"astera":{"px":381.94,"avg":389.9527,"lo":190.0,"hi":500.0,"n":23,"r":"Buy","fpe":59.739,"cur":"USD","chg1d":-2.02},"eqt":{"px":52.075,"avg":67.1923,"lo":52.0,"hi":81.0,"n":26,"r":"Strong Buy","fpe":13.8092,"cur":"USD","chg1d":-0.75},"williams":{"px":71.47,"avg":85.4583,"lo":69.0,"hi":103.0,"n":24,"r":"Strong Buy","fpe":27.0032,"cur":"USD","chg1d":-1.27},"dominion":{"px":61.465,"avg":71.9167,"lo":63.0,"hi":87.0,"n":12,"r":"Buy","fpe":16.1147,"cur":"USD","chg1d":-0.86},"southern":{"px":85.91,"avg":98.1316,"lo":79.0,"hi":112.0,"n":19,"r":"Hold","fpe":17.45,"cur":"USD","chg1d":0.55},"entergy":{"px":103.14,"avg":122.275,"lo":91.0,"hi":137.0,"n":20,"r":"Buy","fpe":20.2061,"cur":"USD","chg1d":-0.11},"aep":{"px":122.81,"avg":142.525,"lo":128.0,"hi":173.0,"n":20,"r":"Buy","fpe":17.9106,"cur":"USD","chg1d":0.94},"fcx":{"px":71.835,"avg":75.2727,"lo":30.0,"hi":87.0,"n":22,"r":"Buy","fpe":16.7375,"cur":"USD","chg1d":-1.0},"mp":{"px":46.228,"avg":73.4118,"lo":57.0,"hi":100.0,"n":17,"r":"Strong Buy","fpe":56.1674,"cur":"USD","chg1d":-4.74},"asml":{"px":1799.31,"avg":2099.231,"lo":866.7265,"hi":2913.3677,"n":16,"r":"Strong Buy","fpe":30.8947,"cur":"USD","chg1d":-1.9},"apple":{"px":336.75,"avg":328.0938,"lo":215.0,"hi":405.0,"n":39,"r":"Buy","fpe":35.1409,"cur":"USD","chg1d":0.94},"alibaba":{"px":106.87,"avg":185.414,"lo":95.2693,"hi":238.3872,"n":39,"r":"Strong Buy","fpe":11.5768,"cur":"USD","chg1d":-2.19},"microsoft":{"px":530.88,"avg":585.6149,"lo":440.0,"hi":870.0,"n":53,"r":"Strong Buy","fpe":22.4217,"cur":"USD","chg1d":0.3},"amazon":{"px":259.51,"avg":330.5919,"lo":230.0,"hi":405.0,"n":57,"r":"Strong Buy","fpe":24.7945,"cur":"USD","chg1d":1.26},"google":{"px":348.995,"avg":429.4741,"lo":340.0,"hi":515.0,"n":54,"r":"Strong Buy","fpe":23.0108,"cur":"USD","chg1d":0.38},"meta":{"px":727.12,"avg":794.9607,"lo":580.0,"hi":1000.0,"n":58,"r":"Strong Buy","fpe":20.8308,"cur":"USD","chg1d":-1.59},"kazatomprom":{"px":29.4,"avg":null,"lo":null,"hi":null,"n":null,"r":"Strong Buy","fpe":0.0135,"cur":"USD","chg1d":2.15},"samsung":{"px":268500.0,"avg":478627.88,"lo":290000.0,"hi":725000.0,"n":36,"r":"Strong Buy","fpe":3.7799,"cur":"KRW","chg1d":-1.29},"foxconn":{"px":252.0,"avg":347.45,"lo":260.0,"hi":435.0,"n":20,"r":"Buy","fpe":10.8967,"cur":"TWD","chg1d":-1.56},"quanta":{"px":335.0,"avg":427.8421,"lo":250.0,"hi":626.0,"n":19,"r":"Buy","fpe":10.4749,"cur":"TWD","chg1d":0.45},"wistron":{"px":185.0,"avg":270.0,"lo":165.0,"hi":400.0,"n":17,"r":"Strong Buy","fpe":7.6352,"cur":"TWD","chg1d":-2.37},"schneider":{"px":254.55,"avg":327.4905,"lo":262.0,"hi":370.0,"n":21,"r":"Buy","fpe":20.5546,"cur":"EUR","chg1d":-2.28},"ionq":{"px":41.375,"avg":66.6321,"lo":41.85,"hi":100.0,"n":14,"r":"Strong Buy","fpe":null,"cur":"USD","chg1d":-4.42},"rigetti":{"px":14.605,"avg":28.525,"lo":17.3,"hi":40.0,"n":12,"r":"Buy","fpe":null,"cur":"USD","chg1d":-3.72},"dwave":{"px":15.205,"avg":34.6475,"lo":18.36,"hi":43.0,"n":16,"r":"Strong Buy","fpe":null,"cur":"USD","chg1d":-3.7},"qci":{"px":7.585,"avg":18.6667,"lo":10.0,"hi":32.0,"n":6,"r":null,"fpe":null,"cur":"USD","chg1d":-3.5},"infleqtion":{"px":11.565,"avg":21.8333,"lo":19.0,"hi":25.0,"n":6,"r":"Strong Buy","fpe":null,"cur":"USD","chg1d":-7.78},"xanadu":{"px":4.575,"avg":28.75,"lo":16.0,"hi":43.0,"n":4,"r":"Strong Buy","fpe":null,"cur":"USD","chg1d":-9.58},"horizonq":{"px":16.4401,"avg":20.5,"lo":20.0,"hi":21.0,"n":2,"r":null,"fpe":null,"cur":"USD","chg1d":-4.75},"quantinuum":{"px":43.909,"avg":97.1667,"lo":78.0,"hi":155.0,"n":12,"r":"Strong Buy","fpe":null,"cur":"USD","chg1d":-3.69},"iqm":{"px":10.39,"avg":9.4477,"lo":9.4477,"hi":9.4477,"n":1,"r":null,"fpe":null,"cur":"USD","chg1d":-4.42},"ibm":{"px":221.91,"avg":240.59,"lo":174.0,"hi":297.0,"n":22,"r":"Buy","fpe":16.8782,"cur":"USD","chg1d":0.28},"honeywell":{"px":208.56,"avg":258.2609,"lo":186.0,"hi":303.0,"n":23,"r":"Buy","fpe":21.1917,"cur":"USD","chg1d":-2.02},"keysight":{"px":382.1,"avg":418.0,"lo":350.0,"hi":487.0,"n":12,"r":null,"fpe":27.422,"cur":"USD","chg1d":-1.53},"gfs":{"px":47.4,"avg":74.6818,"lo":51.0,"hi":140.0,"n":22,"r":"Buy","fpe":18.0104,"cur":"USD","chg1d":-2.53},"sealsq":{"px":2.34,"avg":5.875,"lo":3.75,"hi":8.0,"n":2,"r":null,"fpe":null,"cur":"USD","chg1d":-3.31},"arqit":{"px":22.4501,"avg":null,"lo":null,"hi":null,"n":null,"r":null,"fpe":null,"cur":"USD","chg1d":-4.18},"oxinst":{"px":3048.0,"avg":3235.7139,"lo":3000.0,"hi":3500.0,"n":7,"r":null,"fpe":24.0789,"cur":"GBp","chg1d":-2.06},"intel":{"px":112.57,"avg":118.0465,"lo":80.0,"hi":200.0,"n":43,"r":"Buy","fpe":54.0508,"cur":"USD","chg1d":0.06},"formfactor":{"px":139.63,"avg":153.8889,"lo":100.0,"hi":200.0,"n":9,"r":"Buy","fpe":36.8719,"cur":"USD","chg1d":-1.18},"qtum":{"px":154.45,"avg":null,"lo":null,"hi":null,"n":null,"r":null,"fpe":null,"cur":"USD","chg1d":-1.87}};
+const SNAP_D = "Oct 7";
+for (const [id, q] of Object.entries(SNAP)) {
+  if (!S[id]) { if (id === "qtum") S.qtum = {tk: "QTUM"}; else continue; }
+  const s = S[id]; if (!s.tk) continue;
+  for (const k of ["px","avg","lo","hi","n","r","fpe","cur","chg1d"]) if (q[k] != null && s[k] == null) s[k] = q[k];
+  if (s.avg && (s.lo == null || s.hi == null)) { s.lo = s.lo ?? s.avg; s.hi = s.hi ?? s.avg; }
+  if (!s.d) s.d = SNAP_D;
+}
+
+const APP = Object.assign({app:true, supabaseUrl:"", supabaseAnonKey:""}, window.MTM_CONFIG||{});
+const LIVE = {loaded:false, data:null, dshort:null};
+const $ = (s,el=document)=>el.querySelector(s);
+const map = $("#map"), svg = $("#links"), insp = $("#insp");
+const chipEl = {}, bandName = {};
+const out = {}, inc = {};
+for (const id in N){ out[id]=[]; inc[id]=[]; }
+E.forEach((e,i)=>{ out[e[0]].push(i); inc[e[1]].push(i); });
+
+function grpOf(id){ return N[id].g || GROUP[N[id].b]; }
+function laneOf(id){ const b=N[id].b; return b==="U"?"u":b==="R"?"dc":b==="P8"?"coal":b[0]==="P"?"power":"hw"; }
+function okStock(s){ return !!(s && s.tk && s.px>0 && s.avg>0); }
+function stockOf(id){ const s=S[id]; if(!s) return null; if(okStock(s)) return s; if(s.alias==="sols" && okStock(S.sols)) return S.sols; return null; }
+function peOf(s){ if(s.fpe!=null && s.fpe>0) return s.fpe; return (s.eps && s.eps>0) ? s.px/s.eps : null; }
+function fmtPE(v){ return v<20? v.toFixed(1) : String(Math.round(v)); }
+function fmtChg(v){ return (v>=0?"+":"−")+Math.abs(v).toFixed(1)+"%"; }
+function upPct(s){ return (s.avg/s.px-1)*100; }
+function upCls(u){ return u>=50?"hi":u>=20?"mid":u>=0?"lo":"neg"; }
+function fmtPct(u){ return (u>=0?"+":"−")+Math.abs(u).toFixed(0)+"%"; }
+function fmt$(v,cur){ const n=(v>=1000? v.toLocaleString("en-US",{maximumFractionDigits:0}) : v.toFixed(2)); return (!cur||cur==="USD")? "$"+n : n+" "+cur; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function pillHTML(id){
+  const s=stockOf(id);
+  if(s) { const u=upPct(s); return `<span class="up ${upCls(u)}" title="Average analyst target vs price">${fmtPct(u)}</span>`; }
+  return "";
+}
+
+function nmHTML(id){ return `<span class="cn">${esc(N[id].n)}</span>${WL[id]?'<span class="star" title="On your watchlist">★</span>':""}${pillHTML(id)}`; }
+function chip(id){
+  const d=N[id], b=document.createElement("button");
+  b.type="button"; b.className="chip"+(d.fut?" future":""); b.dataset.id=id;
+  b.innerHTML=`<span class="nm">${nmHTML(id)}</span><span class="ct">${esc(d.t)}</span>`;
+  b.setAttribute("aria-label", d.n+" — "+d.role);
+  b.addEventListener("click",()=>select(sel===id?null:id));
+  chipEl[id]=b; return b;
+}
+
+function build(){
+  LANES.forEach(L=>{
+    const lane=document.createElement("div"); lane.className="lane "+L.cls;
+    lane.innerHTML=`<div class="lanehead"><h2><span class="sw"></span>${L.name}</h2><p>${L.note}</p></div>`;
+    L.bands.forEach(B=>{
+      bandName[B.id]=B.label;
+      const band=document.createElement("div"); band.className="band"+(B.coal?" coal":"");
+      band.innerHTML=`<div class="bandhead"><h3>${B.label}</h3><p>${B.plain}</p></div><div class="chips"></div>`;
+      const box=band.querySelector(".chips");
+      Object.keys(N).filter(k=>N[k].b===B.id).forEach(k=>box.appendChild(chip(k)));
+      lane.appendChild(band);
+    });
+    map.appendChild(lane);
+  });
+  bandName.R=UI.bandR; bandName.U=UI.bandU;
+  const r=document.createElement("div"); r.className="dcband";
+  r.innerHTML=`<div class="bandhead"><h3><span class="sw"></span>${UI.rband[0]}</h3><p>${UI.rband[1]}</p></div><div class="chips"></div>`;
+  RBAND.forEach(k=>r.querySelector(".chips").appendChild(chip(k)));
+  map.appendChild(r);
+  const buy=document.createElement("div"); buy.className="buyers";
+  buy.innerHTML=`<div class="bandhead"><h3>${UI.buyers[0]}</h3><p>${UI.buyers[1]}</p></div><div class="chips"></div>`;
+  BUYERS.forEach(k=>buy.querySelector(".chips").appendChild(chip(k)));
+  map.appendChild(buy);
+
+  const pick=$("#pick");
+  BUYERS.forEach(k=>{
+    const b=document.createElement("button"); b.type="button"; b.textContent=N[k].n; b.dataset.id=k;
+    b.setAttribute("aria-pressed","false"); b.addEventListener("click",()=>select(k)); pick.appendChild(b);
+  });
+  const c=document.createElement("button"); c.type="button"; c.className="clear"; c.textContent="Show all links";
+  c.addEventListener("click",()=>select(null)); pick.appendChild(c);
+
+  const ol=$("#srclist");
+  Object.values(SRC).forEach(([t,u])=>{ const li=document.createElement("li"); const a=document.createElement("a"); a.href=u; a.target="_blank"; a.rel="noopener"; a.textContent=t; li.appendChild(a); ol.appendChild(li); });
+}
+
+let sel=null, onSet=new Set(), onEdges=new Set();
+function walk(start, dir){
+  const seen=new Set(), es=new Set(), stack=[start];
+  while(stack.length){ const id=stack.pop();
+    (dir==="up"?inc[id]:out[id]).forEach(i=>{ es.add(i); const nx=dir==="up"?E[i][0]:E[i][1]; if(!seen.has(nx)){seen.add(nx); stack.push(nx);} });
+  }
+  return [seen,es];
+}
+
+function select(id, scroll){
+  if(id && !N[id]) id=null;
+  sel=id; onSet=new Set(); onEdges=new Set();
+  if(id){
+    onSet.add(id);
+    const [u,ue]=walk(id,"up"), [d,de]=walk(id,"down");
+    u.forEach(x=>onSet.add(x)); d.forEach(x=>onSet.add(x));
+    ue.forEach(x=>onEdges.add(x)); de.forEach(x=>onEdges.add(x));
+  }
+  map.classList.toggle("has-sel",!!id);
+  for(const k in chipEl){ chipEl[k].classList.toggle("on",onSet.has(k)); chipEl[k].classList.toggle("sel",k===id); chipEl[k].setAttribute("aria-pressed",k===id?"true":"false"); }
+  document.querySelectorAll("#pick button[data-id]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.id===id?"true":"false"));
+  draw(); renderInsp();
+  if(scroll && chipEl[id]) chipEl[id].scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth", block:"center"});
+}
+
+function rel(list, key){
+  if(!list.length) return `<p class="none">No public company-level links. ${key==="from"?"Supply comes through the industry tier above.":"Sells into the wider market."}</p>`;
+  return list.map(i=>{ const e=E[i], other=key==="from"?e[0]:e[1];
+    return `<button type="button" data-go="${other}"><b>${esc(N[other].n)}</b><span>${esc(e[3])}${e[2]==="p"?" · planned / ownership":""}</span></button>`; }).join("");
+}
+
+function rangeBar(s, mini){
+  const lo=Math.min(s.lo,s.px), hi=Math.max(s.hi,s.px), w=hi-lo||1;
+  const pos=v=>((v-lo)/w*100).toFixed(2)+"%";
+  const span=`left:${pos(s.lo)};width:${((s.hi-s.lo)/w*100).toFixed(2)}%`;
+  if(mini) return `<div class="minirb" aria-hidden="true"><div class="track"></div><div class="span" style="${span}"></div><div class="avg" style="left:${pos(s.avg)}"></div><div class="dot" style="left:${pos(s.px)}"></div></div>`;
+  return `<div class="rb" aria-label="Target range ${fmt$(s.lo,s.cur)} to ${fmt$(s.hi,s.cur)}, average ${fmt$(s.avg,s.cur)}, price ${fmt$(s.px,s.cur)}"><div class="track"></div><div class="span" style="${span}"></div><div class="avg" style="left:${pos(s.avg)}"></div><div class="dot" style="left:${pos(s.px)}"></div></div>
+  <div class="rbl"><span>low ${fmt$(s.lo,s.cur)}</span><span>avg ${fmt$(s.avg,s.cur)}</span><span>high ${fmt$(s.hi,s.cur)}</span></div>`;
+}
+
+function stockBlock(id){
+  const raw=S[id]; if(!raw) return "";
+  if(!okStock(raw)){
+    const go = raw.alias && S[raw.alias] && S[raw.alias].tk ? `<button type="button" data-go="${raw.alias==="sols"?"converdyn":raw.alias}" class="linkish" style="all:unset;cursor:pointer;color:var(--atom);text-decoration:underline">See ${esc(raw.alias==="sols"?"SOLS":S[raw.alias].tk)}</button>` : "";
+    if(raw.alias==="sols" && okStock(S.sols)){ return stockFull(S.sols, "converdyn", raw.via); }
+    return raw.via ? `<div class="stock"><h4 style="margin:0">Stock</h4><p class="priv">${esc(raw.via)} ${go}</p></div>` : "";
+  }
+  return stockFull(raw, id);
+}
+function stockFull(s, id, pre){
+  const u=upPct(s);
+  const pv=peOf(s);
+  const pe = pv!=null ? `about ${fmtPE(pv)}× ${s.fpe!=null?"forward":"next year's expected"} earnings` : (s.pen? `P/E not comparable (${s.pen})` : (s.auto? "no P/E available" : "not profitable yet, so no P/E"));
+  const rating = `${s.r?esc(s.r):"No consensus rating"}${s.n?` from ${s.n} analysts`:""}`;
+  const link = (LIVE.loaded || s.tk.includes(".")) ? `https://finance.yahoo.com/quote/${encodeURIComponent(s.tk)}` : `https://stockanalysis.com/stocks/${s.tk.toLowerCase()}/forecast/`;
+  return `<div class="stock">
+    <h4 style="margin:0">Stock</h4>
+    ${pre?`<p class="priv">${esc(pre)}</p>`:""}
+    <div class="row1"><span class="tk">${esc(s.tk)}</span><span class="px">${fmt$(s.px,s.cur)}</span><span class="dt">${esc(s.d||"Oct 2")} close${s.chg1d!=null?` · ${fmtChg(s.chg1d)} that day`:""}${s.stale?" · not updated today":""}</span></div>
+    <div class="tgt">Average analyst target <b>${fmt$(s.avg,s.cur)}</b>: <b class="${u>=0?"p":"n"}">${fmtPct(u)}</b></div>
+    ${rangeBar(s)}
+    <div class="meta">${rating} · ${pe}${s.risk?` · risk: <span class="risk r${s.risk}">${RISK[s.risk]}</span>`:""}${s.mv?` · ${esc(s.mv)}`:""}</div>
+    ${s.note?`<div class="meta">${esc(s.note)}</div>`:""}
+    ${s.bull?`<dl><div><dt>What could push it up</dt><dd>${esc(s.bull)}</dd></div><div><dt>What could hold it back</dt><dd>${esc(s.bear)}</dd></div><div><dt>Watch next</dt><dd>${esc(s.cat)}</dd></div></dl>`:""}
+    <div class="srcs"><a href="${link}" target="_blank" rel="noopener">${esc(s.tk)} quote and forecast</a></div>
+  </div>`;
+}
+
+let minimized=false;
+function renderInsp(){
+  if(!sel){
+    insp.innerHTML=`<div class="sheetbar"><span class="eyebrow">How to read this</span><button type="button" id="mintog">${minimized?"Expand":"Collapse"}</button></div>
+    <div class="body"><div class="eyebrow">How to read this</div><h2>Pick a company</h2>
+    <p class="role">Every faint line is a public deal, supply link or ownership stake. Tap a company to light up its chain and see its stock.</p>
+    <ul class="facts">${UI.intro.map(x=>`<li>${x}</li>`).join("")}</ul></div>`;
+  } else {
+    const d=N[sel];
+    const lane=laneOf(sel), laneTxt = UI.laneTxt[lane];
+    const srcs=(d.s||[]).map(k=>`<a href="${SRC[k][1]}" target="_blank" rel="noopener">${esc(SRC[k][0].split(":")[0])}</a>`).join("");
+    insp.innerHTML=`<div class="sheetbar"><span class="eyebrow">${laneTxt} · ${bandName[d.b]}</span><button type="button" id="mintog">${minimized?"Expand":"Collapse"}</button></div>
+    <div class="body">
+      <div><div class="eyebrow">${laneTxt} · ${bandName[d.b]}${d.fut?" · not running yet":""}</div>
+      <h2>${esc(d.n)}</h2><div class="where">${esc(d.t)}</div></div>
+      <p class="role">${esc(d.role)}</p>
+      ${stockBlock(sel)}
+      ${wlBox(sel)}
+      ${d.f.length?`<ul class="facts">${d.f.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+      ${d.b!=="U"?`<div><h4>Sells or supplies to</h4><div class="rel">${rel(out[sel],"to")}</div></div>`:""}
+      <div><h4>Buys or gets from</h4><div class="rel">${rel(inc[sel],"from")}</div></div>
+      ${srcs?`<div><h4>Sources</h4><div class="srcs">${srcs}</div></div>`:""}
+    </div>`;
+  }
+  insp.classList.toggle("min",minimized);
+  const t=$("#mintog",insp); if(t) t.addEventListener("click",()=>{minimized=!minimized; renderInsp();});
+  insp.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>select(b.dataset.go)));
+  const tog=$("#wltog",insp); if(tog) tog.addEventListener("click",()=>{ if(WL[sel]) wlDelete(sel); else wlSave(sel,{}); });
+  const sv=$("#wlsave",insp); if(sv) sv.addEventListener("click",()=>{ const v=$("#wlbuy",insp).value.trim(); wlSave(sel,{buy_price: v===""?null:Number(v), notes: $("#wlnotes",insp).value}, true); });
+}
+
+const NS="http://www.w3.org/2000/svg";
+function draw(){
+  const m=map.getBoundingClientRect();
+  svg.setAttribute("viewBox",`0 0 ${m.width} ${m.height}`);
+  const cs=getComputedStyle(document.documentElement);
+  const col={power:cs.getPropertyValue("--atom").trim(), hw:cs.getPropertyValue("--si").trim(), coal:cs.getPropertyValue("--coal").trim(), dc:cs.getPropertyValue("--dc").trim()};
+  svg.replaceChildren();
+  const order=E.map((e,i)=>i).sort((a,b)=>(onEdges.has(a)?1:0)-(onEdges.has(b)?1:0));
+  order.forEach(i=>{
+    const [a,b,kind]=E[i];
+    const ra=chipEl[a].getBoundingClientRect(), rb=chipEl[b].getBoundingClientRect();
+    const ax=ra.left-m.left+ra.width/2, bx=rb.left-m.left+rb.width/2;
+    const aTop=ra.top-m.top, aBot=ra.bottom-m.top, bTop=rb.top-m.top, bBot=rb.bottom-m.top;
+    let d, end;
+    if(Math.abs(aTop-bTop)<8){
+      const left = ra.left<rb.left;
+      const x1= left? ra.right-m.left : ra.left-m.left, x2 = left? rb.left-m.left : rb.right-m.left;
+      const y=aTop+ra.height/2;
+      d=`M${x1} ${y} C${x1+(left?14:-14)} ${y-18}, ${x2+(left?-14:14)} ${y-18}, ${x2} ${y}`; end=[x2,y];
+    } else if(bTop>aBot){
+      const y1=aBot, y2=bTop, k=Math.max(24,(y2-y1)*.5);
+      d=`M${ax} ${y1} C${ax} ${y1+k}, ${bx} ${y2-k}, ${bx} ${y2}`; end=[bx,y2];
+    } else {
+      const y1=aTop, y2=bBot, k=Math.max(24,(y1-y2)*.5);
+      d=`M${ax} ${y1} C${ax} ${y1-k}, ${bx} ${y2+k}, ${bx} ${y2}`; end=[bx,y2];
+    }
+    const c=col[laneOf(a)==="u"?"power":laneOf(a)];
+    const p=document.createElementNS(NS,"path");
+    p.setAttribute("d",d); p.setAttribute("fill","none");
+    const on=onEdges.has(i);
+    p.setAttribute("stroke",c); p.setAttribute("stroke-width", on?2.2:1.2);
+    p.setAttribute("stroke-opacity", sel ? (on?.95:.06) : .28);
+    if(kind==="p") p.setAttribute("stroke-dasharray","5 4");
+    p.setAttribute("stroke-linecap","round");
+    svg.appendChild(p);
+    if(on){ const dot=document.createElementNS(NS,"circle"); dot.setAttribute("cx",end[0]); dot.setAttribute("cy",end[1]); dot.setAttribute("r",3.2); dot.setAttribute("fill",c); svg.appendChild(dot); }
+  });
+}
+
+/* upside table */
+let ROWS=[];
+function makeRows(){ ROWS = Object.keys(S).filter(k=>okStock(S[k]) && (N[k] || S[k].node)).map(k=>{
+  const s=S[k], node = s.node || k;
+  return {id:node, s, name: s.name || N[k].n, link: s.link || (bandName[N[node].b]||""), grp: s.grp || grpOf(node), up:upPct(s)};
+}); }
+let sortKey="up", grpF="All";
+function renderTable(){
+  const tb=$("#tbl tbody");
+  let rows=ROWS.filter(r=>grpF==="All"||(grpF==="My watchlist"? !!WL[r.id] : r.grp===grpF));
+  const curD = LIVE.loaded? LIVE.dshort : "Oct 2";
+  rows.sort((a,b)=>{
+    if(sortKey==="name") return a.name.localeCompare(b.name);
+    if(sortKey==="px") return b.s.px-a.s.px;
+    if(sortKey==="pe"){ const A=peOf(a.s)??1e9, B=peOf(b.s)??1e9; return A-B; }
+    return b.up-a.up;
+  });
+  tb.innerHTML=rows.map(r=>`<tr data-id="${r.id}" tabindex="0">
+    <td><div class="co">${WL[r.id]&&!r.s.node?'<span class="star">★</span> ':""}${esc(r.name)}</div><div class="tkc">${esc(r.s.tk)}</div></td>
+    <td><div class="lk">${esc(r.grp)} · ${esc(r.link)}</div></td>
+    <td class="r num">${fmt$(r.s.px,r.s.cur)}${(r.s.d&&r.s.d!==curD)||r.s.stale?`<div class="stale">${esc(r.s.stale?"not updated":r.s.d)}</div>`:""}</td>
+    <td class="r num">${fmt$(r.s.avg,r.s.cur)}</td>
+    <td class="r"><span class="up ${upCls(r.up)}">${fmtPct(r.up)}</span></td>
+    <td>${rangeBar(r.s,true)}</td>
+    <td class="r num">${peOf(r.s)!=null? fmtPE(peOf(r.s))+"×" : `<span style="color:var(--muted)">n/m</span>`}</td>
+    <td><span style="font-size:13px">${esc(r.s.r||"—")}</span> ${r.s.n?`<span class="tkc">(${r.s.n})</span>`:""}</td>
+    <td>${r.s.risk?`<span class="risk r${r.s.risk}">${RISK[r.s.risk]}</span>`:`<span class="tkc">—</span>`}</td>
+  </tr>`).join("");
+  tb.querySelectorAll("tr").forEach(tr=>{
+    const go=()=>{ select(tr.dataset.id,true); };
+    tr.addEventListener("click",go);
+    tr.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); } });
+  });
+  document.querySelectorAll("#tbl th button").forEach(b=>{ if(b.dataset.sort===sortKey) b.setAttribute("aria-sort","descending"); else b.removeAttribute("aria-sort"); });
+}
+function buildFilters(){
+  const f=$("#filters");
+  UI.filters.forEach(g=>{
+    const b=document.createElement("button"); b.type="button"; b.textContent=g; b.setAttribute("aria-pressed",g===grpF?"true":"false");
+    b.addEventListener("click",()=>{ grpF=g; f.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false")); renderTable(); });
+    f.appendChild(b);
+  });
+  const w=document.createElement("button"); w.type="button"; w.id="wlfilter"; w.textContent="★ My watchlist"; w.hidden=true; w.setAttribute("aria-pressed","false");
+  w.addEventListener("click",()=>{ grpF="My watchlist"; f.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===w?"true":"false")); renderTable(); });
+  f.appendChild(w);
+  document.querySelectorAll("#tbl th button").forEach(b=>b.addEventListener("click",()=>{ sortKey=b.dataset.sort; renderTable(); }));
+}
+function buildThemes(){
+  $("#themes").innerHTML=THEMES.map(th=>{
+    const ups=th.ids.map(id=>okStock(S[id])?upPct(S[id]):null).filter(v=>v!=null);
+    const lo=Math.min(...ups), hi=Math.max(...ups);
+    const rng = !ups.length? "" : (fmtPct(lo)===fmtPct(hi)? fmtPct(lo) : `${fmtPct(lo)} to ${fmtPct(hi)}`);
+    const tks=th.ids.map(id=>{ const s=S[id]; const ok=okStock(s); const node= (s&&s.node)||id; const label = s&&s.tk? s.tk : N[id].n;
+      return `<button type="button" data-go="${node}">${esc(label)} ${ok?`<span class="up ${upCls(upPct(s))}">${fmtPct(upPct(s))}</span>`:""}</button>`; }).join("");
+    return `<article class="theme"><div class="hd"><h3>${esc(th.t)}</h3><span class="risk r${th.risk}">${RISK[th.risk]} risk</span></div>
+      <div class="tks">${tks}</div>
+      <p>${rng?`<b>Analyst upside ${rng}.</b> `:""}${esc(th.why)}</p>
+      <p class="watch">Watch: ${esc(th.watch)}</p></article>`;
+  }).join("");
+  $("#themes").querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>select(b.dataset.go,true)));
+}
+
+/* ---------- web app: daily data ---------- */
+async function loadLive(){
+  let data;
+  try{ const r=await fetch("data/stocks.json",{cache:"no-store"}); if(!r.ok) return; data=await r.json(); }catch(e){ return; }
+  if(!data || !data.stocks) return;
+  LIVE.loaded=true; LIVE.data=data; LIVE.dshort=data.asof_short||data.asof;
+  for(const [id,q] of Object.entries(data.stocks)){
+    if(!q || !(q.px>0)) continue;
+    let st=S[id];
+    if(!st || !st.tk){ st = S[id] = Object.assign({}, st||{}, {tk:q.symbol, auto:true}); delete st.via; delete st.alias; }
+    st.px=q.px; st.d=q.stale? (q.date_short||st.d) : LIVE.dshort; st.cur=q.currency||st.cur; st.stale=!!q.stale;
+    st.chg1d = q.chg1d!=null? q.chg1d : null;
+    if(q.avg>0){ st.avg=q.avg; if(q.lo>0) st.lo=q.lo; if(q.hi>0) st.hi=q.hi; }
+    if(q.n) st.n=q.n;
+    if(q.rating) st.r=q.rating;
+    st.fpe = q.fpe>0? q.fpe : null;
+    if(st.lo==null||st.hi==null){ st.lo=st.lo??st.avg; st.hi=st.hi??st.avg; }
+  }
+  const k=$(".kicker"); if(k) k.textContent=`${UI.topic} · prices updated ${data.asof_label||data.asof}`;
+  const nt=$("#notice"); if(nt) nt.textContent=`Research, not advice. Prices and analyst targets refresh every morning at 6am Pacific from ${data.source||"Yahoo Finance"}. The green pills show the gap between the latest price and the average Wall Street 12-month target. Targets are often too optimistic and move with the stock, so treat them as one input, not a forecast. The written company notes are a snapshot from October 2026.${UI.noticeTail?" "+UI.noticeTail:""}`;
+  refreshAll();
+}
+function refreshAll(){
+  for(const k in chipEl){ const nm=chipEl[k].querySelector(".nm"); if(nm) nm.innerHTML=nmHTML(k); }
+  makeRows(); renderTable(); buildThemes(); renderInsp(); renderToday(); draw(); if(typeof pageRefresh==="function") pageRefresh();
+}
+function liItem(id, sym, val, cls, extra, name){
+  const go=(S[id]&&S[id].node)||id, nm=name||(S[id]&&S[id].name)||(N[go]?N[go].n:sym);
+  return `<li><button type="button" data-go="${go}"><span>${esc(nm)} <span class="tkc">${esc(sym)}</span>${extra?` <span class="tkc">${esc(extra)}</span>`:""}</span><span class="v ${cls}">${val}</span></button></li>`;
+}
+function renderToday(){
+  const sec=$("#today"); if(!LIVE.loaded){ sec.hidden=true; return; }
+  sec.hidden=false;
+  const data=LIVE.data, ch=data.changes||{};
+  $("#todaySub").textContent = `Moves in the last trading session and analyst changes since the previous update${ch.prev_asof_label?` (${ch.prev_asof_label})`:""}. Updated ${data.asof_label||data.asof}.`;
+  const movers=ROWS.filter(r=>r.s.chg1d!=null && !r.s.stale);
+  const ups=movers.filter(r=>r.s.chg1d>0).sort((a,b)=>b.s.chg1d-a.s.chg1d).slice(0,6);
+  const downs=movers.filter(r=>r.s.chg1d<0).sort((a,b)=>a.s.chg1d-b.s.chg1d).slice(0,6);
+  $("#tUp").innerHTML = ups.length? ups.map(r=>liItem(r.id,r.s.tk,fmtChg(r.s.chg1d),"p","",r.name)).join("") : `<li class="empty">No gainers in the last session.</li>`;
+  $("#tDown").innerHTML = downs.length? downs.map(r=>liItem(r.id,r.s.tk,fmtChg(r.s.chg1d),"n","",r.name)).join("") : `<li class="empty">No decliners in the last session.</li>`;
+  const onPage=t=>!!N[(S[t.id]&&S[t.id].node)||t.id];
+  const tg=(ch.targets||[]).filter(onPage).map(t=>liItem(t.id,t.symbol,`${fmt$(t.old,t.currency)} → ${fmt$(t.new,t.currency)}`, t.new>=t.old?"p":"n","avg target"));
+  const rt=(ch.ratings||[]).filter(onPage).map(t=>liItem(t.id,t.symbol,`${esc(t.old||"—")} → ${esc(t.new||"—")}`, "", "rating"));
+  const all=tg.concat(rt);
+  $("#tTgt").innerHTML = all.length? all.slice(0,10).join("") : `<li class="empty">No analyst target or rating changes since the last update.</li>`;
+  const wlIds=Object.keys(WL).filter(id=>N[id]);
+  $("#tWLcol").hidden = !(user && wlIds.length);
+  if(user && wlIds.length){
+    $("#tWL").innerHTML = wlIds.map(id=>{ const s2=stockOf(id); if(!s2) return liItem(id,"",'—',""); const w=WL[id];
+      const gap = w.buy_price>0 ? `${((s2.px/w.buy_price-1)*100).toFixed(0)}% above buy price` : "";
+      return liItem(id, s2.tk, s2.chg1d!=null? fmtChg(s2.chg1d) : fmt$(s2.px,s2.cur), s2.chg1d>=0?"p":"n", s2.px<=w.buy_price? "at or below your buy price" : gap); }).join("");
+  }
+  sec.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>select(b.dataset.go,true)));
+}
+
+/* ---------- web app: watchlist & notes (Supabase) ---------- */
+let sb=null, user=null, WL={};
+function loadScript(src){ return new Promise((res,rej)=>{ const el=document.createElement("script"); el.src=src; el.onload=res; el.onerror=rej; document.head.appendChild(el); }); }
+async function initWatchlist(){
+  if(!APP.supabaseUrl || !APP.supabaseAnonKey) return;
+  try{ await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"); }catch(e){ return; }
+  sb = window.supabase.createClient(APP.supabaseUrl, APP.supabaseAnonKey);
+  const {data} = await sb.auth.getSession(); user = data && data.session ? data.session.user : null;
+  sb.auth.onAuthStateChange((_e,sess)=>{ const before=user&&user.id; user=sess?sess.user:null; if((user&&user.id)!==before) refreshWL(); });
+  await refreshWL();
+}
+async function refreshWL(){
+  WL={};
+  if(user){ const {data,error}=await sb.from("watchlist").select("*"); if(!error && data) data.forEach(r=>{ WL[r.company_id]=r; }); }
+  renderAuth();
+  const w=$("#wlfilter"); if(w) w.hidden=!user;
+  if(!user && grpF==="My watchlist") grpF="All";
+  refreshAll();
+}
+function renderAuth(){
+  const bar=$("#authbar"); if(!sb){ bar.hidden=true; return; } bar.hidden=false;
+  if(!user){
+    bar.innerHTML=`<form id="authform"><label for="authemail">Watchlist</label><input id="authemail" type="email" required placeholder="you@example.com" autocomplete="email"><button type="submit">Email me a sign-in link</button><span id="authmsg" class="authmsg" role="status"></span></form>`;
+    $("#authform").addEventListener("submit", async e=>{ e.preventDefault(); const email=$("#authemail").value.trim(); const msg=$("#authmsg"); msg.textContent="Sending…";
+      const {error}=await sb.auth.signInWithOtp({email, options:{emailRedirectTo: location.origin+location.pathname}});
+      msg.textContent = error? `Couldn't send the link: ${error.message}` : "Check your email for the sign-in link."; });
+  } else {
+    bar.innerHTML=`<span>★ ${Object.keys(WL).length} on your watchlist · ${esc(user.email||"")}</span><button type="button" id="signout">Sign out</button>`;
+    $("#signout").addEventListener("click", async()=>{ await sb.auth.signOut(); user=null; refreshWL(); });
+  }
+}
+function wlBox(id){
+  if(!sb) return "";
+  if(!user) return `<div class="wl"><h4>Watchlist</h4><p class="priv">Sign in at the top of the page to save this company with a buy price and notes.</p></div>`;
+  const r=WL[id], st=stockOf(id);
+  return `<div class="wl"><h4>Watchlist</h4>
+    <button type="button" class="wltog" id="wltog" aria-pressed="${r?"true":"false"}">${r?"★ On your watchlist":"☆ Add to watchlist"}</button>
+    ${r?`<label for="wlbuy">Telegram me when the price is at or below</label>
+    <input id="wlbuy" type="number" step="0.01" min="0" inputmode="decimal" value="${r.buy_price??""}" placeholder="${st?st.px.toFixed(2):"price"}">
+    <label for="wlnotes">Notes</label><textarea id="wlnotes" rows="3">${esc(r.notes||"")}</textarea>
+    <div class="wlrow"><button type="button" id="wlsave">Save</button><span id="wlmsg" class="authmsg" role="status"></span></div>`:""}
+  </div>`;
+}
+async function wlSave(id, patch, showMsg){
+  const st=stockOf(id), prev=WL[id];
+  const row=Object.assign({user_id:user.id, company_id:id, ticker: st?st.tk:null}, prev?{buy_price:prev.buy_price, notes:prev.notes}:{}, patch, {updated_at:new Date().toISOString()});
+  if(prev && ("buy_price" in patch) && patch.buy_price!==prev.buy_price) row.alerted_on=null;
+  const {data,error}=await sb.from("watchlist").upsert(row,{onConflict:"user_id,company_id"}).select().single();
+  if(error){ const m=$("#wlmsg",insp); if(m) m.textContent=`Couldn't save: ${error.message}`; return; }
+  WL[id]=data; renderAuth(); refreshAll();
+  if(showMsg){ const m=$("#wlmsg",insp); if(m) m.textContent="Saved"; }
+}
+async function wlDelete(id){
+  const {error}=await sb.from("watchlist").delete().eq("company_id",id);
+  if(!error){ delete WL[id]; renderAuth(); refreshAll(); }
+}
+
+/* quantum page: listings table and ETF price */
+function pageRefresh(){
+  const tb=document.querySelector("#listtbl tbody"); if(tb){
+    tb.innerHTML=LISTINGS.map(L=>{ const s=stockOf(L.id); const px=s?s.px:(S[L.id]&&S[L.id].px);
+      const ch = px? (px/L.ref-1)*100 : null;
+      return `<tr class="go" data-id="${L.id}" tabindex="0"><td><b>${esc(N[L.id].n)}</b> <span class="tkc">${esc(S[L.id].tk)}</span></td><td>${esc(L.when)}</td><td>${esc(L.how)} · ${esc(L.with)}</td><td>${esc(L.val)}</td>
+        <td class="r num">${fmt$(L.ref)}</td><td class="r num">${px?fmt$(px):"—"}</td><td class="r num">${ch!=null?`<span class="chg ${ch>=0?"p":"n"}">${fmtPct(ch)}</span>`:"—"}</td></tr>`; }).join("");
+    tb.querySelectorAll("tr").forEach(tr=>{ const go=()=>select(tr.dataset.id,true); tr.addEventListener("click",go); tr.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); go(); } }); });
+  }
+  const q=S.qtum; if(q && q.px>0){ const el=document.getElementById("qtumpx"); if(el) el.textContent=fmt$(q.px);
+    const sub=document.getElementById("qtumsub"); if(sub) sub.textContent=`QTUM, Defiance Quantum ETF · ${q.d||""} close${q.chg1d!=null?` · ${fmtChg(q.chg1d)} that day`:""}`; }
+}
+
+
+build();
+makeRows(); buildFilters(); renderTable(); buildThemes(); pageRefresh();
+document.querySelectorAll(".static [data-go]").forEach(b=>b.addEventListener("click",()=>select(b.dataset.go,true)));
+let start=UI.start;
+try{ const h=location.hash.slice(1); if(N[h]) start=h; }catch(e){}
+select(start);
+if(APP.app){ loadLive().then(initWatchlist); }
+const ro=new ResizeObserver(()=>draw()); ro.observe(map);
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+const mq=matchMedia("(prefers-color-scheme: dark)"); mq.addEventListener && mq.addEventListener("change",draw);
+new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+</script>
+</body>
+</html>

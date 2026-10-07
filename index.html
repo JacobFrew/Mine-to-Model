@@ -43,6 +43,12 @@ button{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--atom);outline-offset:2px}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
+/* page nav */
+.pages{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.pages a{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;color:var(--muted);border:1px solid var(--rule);border-radius:999px;padding:4px 12px;background:var(--surface)}
+.pages a:hover{color:var(--ink);border-color:var(--ink)}
+.pages a[aria-current="page"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
 /* header */
 .top{display:grid;gap:14px;max-width:900px}
 .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -274,6 +280,7 @@ td .stale{font-size:11px;color:var(--neg)}
 </head>
 <body>
 <div class="wrap">
+  <nav class="pages" aria-label="Pages"><a href="./" aria-current="page">AI &amp; power</a><a href="quantum.html">Quantum computing</a></nav>
   <header class="top">
     <div class="kicker">AI data centers · supply chains &amp; stocks · prices as of Oct 2–6, 2026 closes</div>
     <h1>Mine to Model</h1>
@@ -322,7 +329,7 @@ td .stale{font-size:11px;color:var(--neg)}
     <aside class="inspector" id="insp" aria-live="polite"></aside>
   </div>
 
-  <section class="block" id="labs">
+  <section class="block static" id="labs">
     <h2>Anthropic and SpaceX</h2>
     <p class="sub">Two of the biggest new links in the chain. Anthropic is a huge buyer of compute from almost every supplier on the map. SpaceX merged with xAI in February, listed in June, and now sells AI compute from its Memphis Colossus data centers as well as running Starlink and launches.</p>
     <div class="labs">
@@ -428,16 +435,7 @@ td .stale{font-size:11px;color:var(--neg)}
   </section>
 </div>
 
-<script>
-/* Web app settings.
-   Level 3 (watchlist): paste your Supabase Project URL and anon public key between the quotes.
-   The anon key is safe to put here; Row Level Security keeps each person's watchlist private. */
-window.MTM_CONFIG = {
-  app: true,
-  supabaseUrl: "",
-  supabaseAnonKey: ""
-};
-</script>
+<script src="config.js"></script>
 <script>
 const SRC = {
   sa:["StockAnalysis.com: price and analyst forecast pages","https://stockanalysis.com/"],
@@ -1045,7 +1043,19 @@ const THEMES = [
   watch:"Whether AI revenue grows fast enough to justify $600B+ a year of capex."}
 ];
 
-const APP = Object.assign({app:false, supabaseUrl:"", supabaseAnonKey:""}, window.MTM_CONFIG||{});
+const UI = {
+  topic:"AI data centers · supply chains & stocks",
+  rband:["Build &amp; rent capacity","Data center builders, GPU clouds and landlords that turn chips and power into capacity the buyers rent."],
+  buyers:["Buy &amp; run AI","The biggest AI compute buyers, where both chains end."],
+  bandR:"Build & rent capacity", bandU:"Buyer",
+  laneTxt:{u:"Buyer",dc:"Data centers",power:"Power chain",coal:"Grid power",hw:"Hardware chain"},
+  intro:["The pill on each company is the gap between its latest price and the average analyst target.","Companies without a pill are private, state-owned, or listed abroad; the panel says how to get exposure, if any.","Dashed boxes are reactors that aren't running yet."],
+  filters:["All","Fuel","Power producers","Gas & utilities","Chips & gear","Network & optics","Materials","Data centers","Space & AI labs","Buyers","Coal"],
+  start:"amazon"
+};
+S.sols.node="converdyn"; S.sols.name="Solstice Advanced Materials"; S.sols.link="Owns ConverDyn conversion plant"; S.sols.grp="Fuel";
+
+const APP = Object.assign({app:true, supabaseUrl:"", supabaseAnonKey:""}, window.MTM_CONFIG||{});
 const LIVE = {loaded:false, data:null, dshort:null};
 const $ = (s,el=document)=>el.querySelector(s);
 const map = $("#map"), svg = $("#links"), insp = $("#insp");
@@ -1097,13 +1107,13 @@ function build(){
     });
     map.appendChild(lane);
   });
-  bandName.R="Build & rent capacity"; bandName.U="Buyer";
+  bandName.R=UI.bandR; bandName.U=UI.bandU;
   const r=document.createElement("div"); r.className="dcband";
-  r.innerHTML=`<div class="bandhead"><h3><span class="sw"></span>Build &amp; rent capacity</h3><p>Data center builders, GPU clouds and landlords that turn chips and power into capacity the buyers rent.</p></div><div class="chips"></div>`;
+  r.innerHTML=`<div class="bandhead"><h3><span class="sw"></span>${UI.rband[0]}</h3><p>${UI.rband[1]}</p></div><div class="chips"></div>`;
   RBAND.forEach(k=>r.querySelector(".chips").appendChild(chip(k)));
   map.appendChild(r);
   const buy=document.createElement("div"); buy.className="buyers";
-  buy.innerHTML=`<div class="bandhead"><h3>Buy &amp; run AI</h3><p>The biggest AI compute buyers, where both chains end.</p></div><div class="chips"></div>`;
+  buy.innerHTML=`<div class="bandhead"><h3>${UI.buyers[0]}</h3><p>${UI.buyers[1]}</p></div><div class="chips"></div>`;
   BUYERS.forEach(k=>buy.querySelector(".chips").appendChild(chip(k)));
   map.appendChild(buy);
 
@@ -1129,6 +1139,7 @@ function walk(start, dir){
 }
 
 function select(id, scroll){
+  if(id && !N[id]) id=null;
   sel=id; onSet=new Set(); onEdges=new Set();
   if(id){
     onSet.add(id);
@@ -1192,10 +1203,10 @@ function renderInsp(){
     insp.innerHTML=`<div class="sheetbar"><span class="eyebrow">How to read this</span><button type="button" id="mintog">${minimized?"Expand":"Collapse"}</button></div>
     <div class="body"><div class="eyebrow">How to read this</div><h2>Pick a company</h2>
     <p class="role">Every faint line is a public deal, supply link or ownership stake. Tap a company to light up its chain and see its stock.</p>
-    <ul class="facts"><li>The pill on each company is the gap between its latest price and the average analyst target.</li><li>Companies without a pill are private, state-owned, or listed abroad; the panel says how to get exposure, if any.</li><li>Dashed boxes are reactors that aren't running yet.</li></ul></div>`;
+    <ul class="facts">${UI.intro.map(x=>`<li>${x}</li>`).join("")}</ul></div>`;
   } else {
     const d=N[sel];
-    const lane=laneOf(sel), laneTxt = lane==="u"?"Buyer":lane==="dc"?"Data centers":lane==="power"?"Power chain":lane==="coal"?"Grid power":"Hardware chain";
+    const lane=laneOf(sel), laneTxt = UI.laneTxt[lane];
     const srcs=(d.s||[]).map(k=>`<a href="${SRC[k][1]}" target="_blank" rel="noopener">${esc(SRC[k][0].split(":")[0])}</a>`).join("");
     insp.innerHTML=`<div class="sheetbar"><span class="eyebrow">${laneTxt} · ${bandName[d.b]}</span><button type="button" id="mintog">${minimized?"Expand":"Collapse"}</button></div>
     <div class="body">
@@ -1258,7 +1269,6 @@ function draw(){
 
 /* upside table */
 let ROWS=[];
-S.sols.node="converdyn"; S.sols.name="Solstice Advanced Materials"; S.sols.link="Owns ConverDyn conversion plant"; S.sols.grp="Fuel";
 function makeRows(){ ROWS = Object.keys(S).filter(k=>okStock(S[k]) && (N[k] || S[k].node)).map(k=>{
   const s=S[k], node = s.node || k;
   return {id:node, s, name: s.name || N[k].n, link: s.link || (bandName[N[node].b]||""), grp: s.grp || grpOf(node), up:upPct(s)};
@@ -1294,7 +1304,7 @@ function renderTable(){
 }
 function buildFilters(){
   const f=$("#filters");
-  ["All","Fuel","Power producers","Gas & utilities","Chips & gear","Network & optics","Materials","Data centers","Space & AI labs","Buyers","Coal"].forEach(g=>{
+  UI.filters.forEach(g=>{
     const b=document.createElement("button"); b.type="button"; b.textContent=g; b.setAttribute("aria-pressed",g===grpF?"true":"false");
     b.addEventListener("click",()=>{ grpF=g; f.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false")); renderTable(); });
     f.appendChild(b);
@@ -1307,12 +1317,13 @@ function buildFilters(){
 function buildThemes(){
   $("#themes").innerHTML=THEMES.map(th=>{
     const ups=th.ids.map(id=>okStock(S[id])?upPct(S[id]):null).filter(v=>v!=null);
-    const rng = ups.length? `${fmtPct(Math.min(...ups))} to ${fmtPct(Math.max(...ups))}` : "";
+    const lo=Math.min(...ups), hi=Math.max(...ups);
+    const rng = !ups.length? "" : (fmtPct(lo)===fmtPct(hi)? fmtPct(lo) : `${fmtPct(lo)} to ${fmtPct(hi)}`);
     const tks=th.ids.map(id=>{ const s=S[id]; const ok=okStock(s); const node= (s&&s.node)||id; const label = s&&s.tk? s.tk : N[id].n;
       return `<button type="button" data-go="${node}">${esc(label)} ${ok?`<span class="up ${upCls(upPct(s))}">${fmtPct(upPct(s))}</span>`:""}</button>`; }).join("");
     return `<article class="theme"><div class="hd"><h3>${esc(th.t)}</h3><span class="risk r${th.risk}">${RISK[th.risk]} risk</span></div>
       <div class="tks">${tks}</div>
-      <p><b>Analyst upside ${rng}.</b> ${esc(th.why)}</p>
+      <p>${rng?`<b>Analyst upside ${rng}.</b> `:""}${esc(th.why)}</p>
       <p class="watch">Watch: ${esc(th.watch)}</p></article>`;
   }).join("");
   $("#themes").querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>select(b.dataset.go,true)));
@@ -1336,13 +1347,13 @@ async function loadLive(){
     st.fpe = q.fpe>0? q.fpe : null;
     if(st.lo==null||st.hi==null){ st.lo=st.lo??st.avg; st.hi=st.hi??st.avg; }
   }
-  const k=$(".kicker"); if(k) k.textContent=`AI data centers · supply chains & stocks · prices updated ${data.asof_label||data.asof}`;
-  const nt=$("#notice"); if(nt) nt.textContent=`Research, not advice. Prices and analyst targets refresh every morning at 6am Pacific from ${data.source||"Yahoo Finance"}. The green pills show the gap between the latest price and the average Wall Street 12-month target. Targets are often too optimistic and move with the stock, so treat them as one input, not a forecast. The written company notes are a snapshot from October 2026.`;
+  const k=$(".kicker"); if(k) k.textContent=`${UI.topic} · prices updated ${data.asof_label||data.asof}`;
+  const nt=$("#notice"); if(nt) nt.textContent=`Research, not advice. Prices and analyst targets refresh every morning at 6am Pacific from ${data.source||"Yahoo Finance"}. The green pills show the gap between the latest price and the average Wall Street 12-month target. Targets are often too optimistic and move with the stock, so treat them as one input, not a forecast. The written company notes are a snapshot from October 2026.${UI.noticeTail?" "+UI.noticeTail:""}`;
   refreshAll();
 }
 function refreshAll(){
   for(const k in chipEl){ const nm=chipEl[k].querySelector(".nm"); if(nm) nm.innerHTML=nmHTML(k); }
-  makeRows(); renderTable(); buildThemes(); renderInsp(); renderToday(); draw();
+  makeRows(); renderTable(); buildThemes(); renderInsp(); renderToday(); draw(); if(typeof pageRefresh==="function") pageRefresh();
 }
 function liItem(id, sym, val, cls, extra, name){
   const go=(S[id]&&S[id].node)||id, nm=name||(S[id]&&S[id].name)||(N[go]?N[go].n:sym);
@@ -1358,11 +1369,12 @@ function renderToday(){
   const downs=movers.filter(r=>r.s.chg1d<0).sort((a,b)=>a.s.chg1d-b.s.chg1d).slice(0,6);
   $("#tUp").innerHTML = ups.length? ups.map(r=>liItem(r.id,r.s.tk,fmtChg(r.s.chg1d),"p","",r.name)).join("") : `<li class="empty">No gainers in the last session.</li>`;
   $("#tDown").innerHTML = downs.length? downs.map(r=>liItem(r.id,r.s.tk,fmtChg(r.s.chg1d),"n","",r.name)).join("") : `<li class="empty">No decliners in the last session.</li>`;
-  const tg=(ch.targets||[]).map(t=>liItem(t.id,t.symbol,`${fmt$(t.old,t.currency)} → ${fmt$(t.new,t.currency)}`, t.new>=t.old?"p":"n","avg target"));
-  const rt=(ch.ratings||[]).map(t=>liItem(t.id,t.symbol,`${esc(t.old||"—")} → ${esc(t.new||"—")}`, "", "rating"));
+  const onPage=t=>!!N[(S[t.id]&&S[t.id].node)||t.id];
+  const tg=(ch.targets||[]).filter(onPage).map(t=>liItem(t.id,t.symbol,`${fmt$(t.old,t.currency)} → ${fmt$(t.new,t.currency)}`, t.new>=t.old?"p":"n","avg target"));
+  const rt=(ch.ratings||[]).filter(onPage).map(t=>liItem(t.id,t.symbol,`${esc(t.old||"—")} → ${esc(t.new||"—")}`, "", "rating"));
   const all=tg.concat(rt);
   $("#tTgt").innerHTML = all.length? all.slice(0,10).join("") : `<li class="empty">No analyst target or rating changes since the last update.</li>`;
-  const wlIds=Object.keys(WL);
+  const wlIds=Object.keys(WL).filter(id=>N[id]);
   $("#tWLcol").hidden = !(user && wlIds.length);
   if(user && wlIds.length){
     $("#tWL").innerHTML = wlIds.map(id=>{ const s2=stockOf(id); if(!s2) return liItem(id,"",'—',""); const w=WL[id];
@@ -1431,8 +1443,8 @@ async function wlDelete(id){
 
 build();
 makeRows(); buildFilters(); renderTable(); buildThemes();
-document.querySelectorAll("#labs [data-go]").forEach(b=>b.addEventListener("click",()=>select(b.dataset.go,true)));
-let start="amazon";
+document.querySelectorAll(".static [data-go]").forEach(b=>b.addEventListener("click",()=>select(b.dataset.go,true)));
+let start=UI.start;
 try{ const h=location.hash.slice(1); if(N[h]) start=h; }catch(e){}
 select(start);
 if(APP.app){ loadLive().then(initWatchlist); }

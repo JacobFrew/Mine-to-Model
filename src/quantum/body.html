@@ -1,0 +1,272 @@
+<div class="wrap">
+  <nav class="pages" aria-label="Pages"><a href="./">AI &amp; power</a><a href="quantum.html" aria-current="page">Quantum computing</a></nav>
+  <header class="top">
+    <div class="kicker">Quantum computing · supply chain &amp; stocks · prices as of Oct 7, 2026</div>
+    <h1>Fridge to Qubit</h1>
+    <p class="lede">Quantum computing is where AI was before ChatGPT: real science, huge promises, and almost no profit yet. This page maps <b>who supplies whom</b>, from helium-3 and dilution refrigerators to the companies building qubits and the banks and governments paying for them. It also covers <b>who's leading</b>, how the public stocks look, and <b>which private companies are likely to go public</b>.</p>
+    <div class="fuelpath" aria-label="How a quantum computer gets built">
+      <span>helium-3</span><i>→</i><span>dilution fridge</span><i>→</i><span>qubit chip or atoms</span><i>→</i><span>lasers &amp; control electronics</span><i>→</i><span>error correction (GPUs)</span><i>→</i><span>cloud</span><i>→</i><span>customer</span>
+    </div>
+    <p class="notice" id="notice">Research, not advice. The green pills show the gap between the latest price and the average Wall Street 12-month price target. Quantum targets are especially unreliable: few analysts cover these stocks, and targets lag big price drops.</p>
+  </header>
+
+  <div class="setup" aria-label="Market setup">
+    <div><b class="num">~$1.4B</b><span>Worldwide quantum computing revenue in 2025 (QED-C), less than a single quarter of many chip companies.</span></div>
+    <div><b class="num">~500×</b><span>Quantinuum's market value versus its trailing sales. IonQ trades near 69× sales.</span></div>
+    <div><b class="num">−30%</b><span>IonQ, Rigetti and D-Wave in the month to July 29, 2026, after a huge run.</span></div>
+    <div><b class="num">$2.0B</b><span>CHIPS money offered to nine quantum companies for government equity stakes (May 2026).</span></div>
+    <div><b class="num">2029</b><span>The year IBM, Quantinuum and Microsoft each target for a large error-corrected machine.</span></div>
+    <div><b class="num">6</b><span>Quantum companies that listed in 2026: Quantinuum by IPO, five more through SPACs.</span></div>
+  </div>
+
+  <section class="block static" id="explain">
+    <h2>What quantum computing really is</h2>
+    <p class="sub">A normal computer stores everything as bits, each either 0 or 1. A quantum computer uses <b>qubits</b>, which follow the rules of physics at the scale of single atoms. With the right program, a quantum computer makes the wrong answers cancel each other out and the right answer grow stronger. That makes it extremely fast at a few specific kinds of problems, not a faster laptop.</p>
+    <div class="explain">
+      <div class="ex"><span class="exn">1</span><h3>Superposition</h3><p>A qubit can be in a blend of 0 and 1 until you measure it. Think of a coin spinning in the air instead of lying heads or tails.</p></div>
+      <div class="ex"><span class="exn">2</span><h3>Entanglement</h3><p>Qubits can be linked so that measuring one tells you about the others. Adding one qubit doubles the space of possibilities: 300 linked qubits describe more combinations than there are atoms in the universe.</p></div>
+      <div class="ex"><span class="exn">3</span><h3>Interference</h3><p>Like noise-cancelling headphones, a quantum program arranges for wrong answers to cancel out and right ones to add up. Only a few known algorithms do this well, which is why quantum helps with some problems and not others.</p></div>
+      <div class="ex"><span class="exn">4</span><h3>Why it's so hard</h3><p>Qubits are fragile. Heat, vibration or stray light knocks them out of their state ("noise"). That's why many must sit near absolute zero, and why today's best machines still make an error about once every 1,000 operations.</p></div>
+      <div class="ex"><span class="exn">5</span><h3>Physical vs. logical qubits</h3><p>The fix is error correction: group many physical qubits into one reliable "logical" qubit. It may take roughly 100 to 1,000 physical qubits per logical one. Useful machines need hundreds to thousands of logical qubits, so headline qubit counts can mislead.</p></div>
+      <div class="ex"><span class="exn">6</span><h3>Where we are in 2026</h3><p>Google showed in 2024 that errors can shrink as machines grow, and in 2025 the first checkable "quantum advantage" results appeared. No one has yet solved a valuable business problem faster than a supercomputer. Most leaders target 2029 for large error-corrected machines.</p></div>
+    </div>
+    <div class="usegrid">
+      <div class="use good"><h3>What it should be good for</h3><ul>
+        <li><b>Chemistry and materials:</b> simulating molecules for drugs, batteries, fertilizer and catalysts. Nature is quantum, so this is the most natural fit.</li>
+        <li><b>Breaking today's encryption:</b> a large enough machine could crack the RSA and elliptic-curve codes that protect the internet (see Q-Day below).</li>
+        <li><b>Some optimization and finance:</b> routing, scheduling and risk models. Gains here are less proven.</li>
+        <li><b>Better sensors and clocks:</b> the same physics makes ultra-precise navigation and timing, which some companies already sell.</li>
+      </ul></div>
+      <div class="use bad"><h3>What it won't do</h3><ul>
+        <li>Replace your laptop, phone or Nvidia GPUs. Quantum computers will work alongside supercomputers, like a specialized co-processor.</li>
+        <li>Speed up everyday software, video, web browsing or training AI models in general.</li>
+        <li>Make money for most of these companies soon. Revenue today comes mainly from governments and research labs buying machines and cloud time.</li>
+      </ul></div>
+    </div>
+    <div class="tablewrap"><table class="qtable">
+      <thead><tr><th>Type of qubit</th><th>How it works</th><th>Leaders</th><th>Strength</th><th>Weakness</th></tr></thead>
+      <tbody>
+        <tr><td><b>Superconducting</b></td><td>Tiny circuits on a chip, cooled to near absolute zero</td><td>IBM, Google, Rigetti, IQM, OQC</td><td>Very fast; made with chip-industry tools</td><td>Noisy; needs huge fridges and lots of wiring</td></tr>
+        <tr><td><b>Trapped ion</b></td><td>Single charged atoms held in place and steered by lasers</td><td>Quantinuum, IonQ</td><td>Most accurate today; every qubit can talk to every other</td><td>Slower; harder to scale to huge numbers</td></tr>
+        <tr><td><b>Neutral atom</b></td><td>Uncharged atoms held by laser "tweezers"</td><td>QuEra, Atom Computing, Pasqal, Infleqtion</td><td>Easy to reach thousands of qubits</td><td>Slower operations; accuracy still improving</td></tr>
+        <tr><td><b>Photonic</b></td><td>Particles of light on silicon chips</td><td>PsiQuantum, Xanadu</td><td>Built in normal chip fabs; easy to network</td><td>Light gets lost; needs enormous scale</td></tr>
+        <tr><td><b>Spin in silicon</b></td><td>Single electrons in silicon, like transistors</td><td>Intel, Diraq, Photonic Inc.</td><td>Tiny; could use existing chip factories</td><td>Earliest stage; few qubits so far</td></tr>
+        <tr><td><b>Topological</b></td><td>Exotic "Majorana" states that resist noise by design</td><td>Microsoft</td><td>Could need far less error correction</td><td>Unproven; results are disputed</td></tr>
+        <tr><td><b>Annealing</b></td><td>A special machine that settles into low-energy answers</td><td>D-Wave</td><td>Sells today for optimization</td><td>Can't run general quantum programs</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="block" id="today" hidden style="margin-top:32px">
+    <h2>Since yesterday</h2>
+    <p class="sub" id="todaySub"></p>
+    <div class="today">
+      <div class="tcol"><h4>Biggest gains</h4><ol id="tUp"></ol></div>
+      <div class="tcol"><h4>Biggest drops</h4><ol id="tDown"></ol></div>
+      <div class="tcol"><h4>Analyst changes</h4><ol id="tTgt"></ol></div>
+      <div class="tcol" id="tWLcol" hidden><h4>Your watchlist</h4><ol id="tWL"></ol></div>
+    </div>
+  </section>
+
+  <section class="block" style="margin-top:48px">
+    <h2>Who supplies whom</h2>
+    <p class="sub">Tap any company to light up its suppliers and customers and see its stock. The left side is the parts and tools; the right side is the qubit builders, grouped by type. Clouds and customers sit at the bottom.</p>
+  </section>
+  <div class="controls">
+    <div class="pick" id="pick"><span class="lbl">Trace a customer</span></div>
+    <div class="legend">
+      <span><svg width="30" height="10" aria-hidden="true"><line x1="1" y1="5" x2="29" y2="5" stroke="currentColor" stroke-width="2"/></svg>supply, sale or service deal</span>
+      <span><svg width="30" height="10" aria-hidden="true"><line x1="1" y1="5" x2="29" y2="5" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"/></svg>investment, ownership or letter of intent</span>
+      <span><span class="up hi">+50%</span><span class="up mid">+20%</span><span class="up lo">+5%</span><span class="up neg">−3%</span>analyst upside</span>
+    </div>
+    <div class="authbar" id="authbar" hidden></div>
+  </div>
+
+  <div class="stage">
+    <div class="map" id="map">
+      <svg class="links" id="links" aria-hidden="true"></svg>
+    </div>
+    <aside class="inspector" id="insp" aria-live="polite"></aside>
+  </div>
+
+  <section class="block static" id="leaders">
+    <h2>Who's leading, and at what</h2>
+    <p class="sub">There's no single leader, because companies are racing on different measures. Here's who is ahead on each one as of October 2026.</p>
+    <div class="cards">
+      <button type="button" class="card lead" data-go="quantinuum"><div class="fig">99.921%</div><h3>Most accurate: Quantinuum</h3><p>Helios has the best two-qubit accuracy of any commercial machine and 48 error-corrected logical qubits.</p></button>
+      <button type="button" class="card lead" data-go="ibm"><div class="fig">2029</div><h3>Clearest roadmap: IBM</h3><p>A dated, year-by-year plan to Starling (200 logical qubits) in 2029 and Blue Jay (2,000) after 2033, and it delivered its 2025 chips on schedule.</p></button>
+      <button type="button" class="card lead" data-go="google"><div class="fig">13,000×</div><h3>Strongest science: Google</h3><p>Showed errors shrinking as qubits are added (2024), then the first checkable quantum advantage (2025).</p></button>
+      <button type="button" class="card lead" data-go="ionq"><div class="fig">$290M</div><h3>Most revenue: IonQ</h3><p>2026 guidance of $280–290M is far ahead of any other pure play, though much of it comes from acquisitions.</p></button>
+      <button type="button" class="card lead" data-go="psiquantum"><div class="fig">$7B</div><h3>Most private money: PsiQuantum</h3><p>$1B raised in 2025, plus nearly A$1B from Australia and a Chicago campus. Still private.</p></button>
+      <button type="button" class="card lead" data-go="atom"><div class="fig">1,225</div><h3>Biggest scale: neutral atoms</h3><p>Atom Computing and Microsoft's Magne uses 1,225 atoms for 50 logical qubits; neutral atoms scale fastest in raw count.</p></button>
+      <button type="button" class="card lead" data-go="dwave"><div class="fig">$35.5M</div><h3>Selling for real work today: D-Wave</h3><p>First-half 2026 bookings from optimization customers and system sales, though annealing is a narrow tool.</p></button>
+      <button type="button" class="card lead" data-go="nvidia"><div class="fig">19</div><h3>Wins either way: Nvidia</h3><p>About 19 qubit builders signed on to NVQLink to pair their machines with Nvidia GPUs.</p></button>
+    </div>
+  </section>
+
+  <section class="block" id="upside">
+    <h2>The public companies</h2>
+    <p class="sub">Every public company on the map, ranked by the gap to its average analyst target. The bar shows the lowest to highest target with the average marked; the dot is today's price. In quantum, the gaps are huge because prices fell faster than analysts cut targets, and a stock with only one or two analysts can show a misleading number. Tap a row to see it on the map.</p>
+    <div class="filters" id="filters"></div>
+    <div class="tablewrap">
+      <table id="tbl">
+        <thead><tr>
+          <th><button type="button" data-sort="name">Company</button></th>
+          <th>Link in the chain</th>
+          <th class="r"><button type="button" data-sort="px">Price</button></th>
+          <th class="r">Avg target</th>
+          <th class="r"><button type="button" data-sort="up" aria-sort="descending">Upside</button></th>
+          <th>Target range vs price</th>
+          <th class="r"><button type="button" data-sort="pe">Fwd P/E</button></th>
+          <th>Rating</th>
+          <th>Risk</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="foot">Forward P/E is price divided by analysts' expected earnings per share for next year; "n/m" means the company loses money. None of the pure plays make a profit. Risk is my read of how wide the outcomes are, based on profits, cash, and how far away real revenue is.</p>
+  </section>
+
+  <section class="block static" id="listings">
+    <h2>The class of 2026: how the new listings have done</h2>
+    <p class="sub">Six quantum companies went public this year. SPAC shares start at about $10, so that's the fair starting line for those five; Quantinuum's is its $60 IPO price.</p>
+    <div class="tablewrap"><table class="qtable" id="listtbl">
+      <thead><tr><th>Company</th><th>Listed</th><th>How</th><th>Value at listing</th><th class="r">Start</th><th class="r">Now</th><th class="r">Change</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <p class="foot">IonQ, Rigetti and D-Wave, which listed through SPACs in 2021–22, each fell roughly 70–95% from their starting prices by the 2022–23 lows before the 2024–25 rally. Lock-up expiries, usually about six months after listing, often bring a wave of insider selling.</p>
+  </section>
+
+  <section class="block static" id="ipo">
+    <h2>Will they go public? The private-company watch</h2>
+    <p class="sub">My read of how likely each well-known private company is to list within about the next 12 months, based on signed deals, filings and funding. "Likely" means a deal is signed or filed; "possible" means credible reports or a clear need for cash; "unlikely soon" means they recently raised plenty privately and have said nothing about listing.</p>
+    <div class="tablewrap"><table class="qtable ipo">
+      <thead><tr><th>Company</th><th>What it does</th><th>Latest value or raise</th><th>Status</th><th>Odds (next ~12 months)</th></tr></thead>
+      <tbody>
+        <tr><td><b>Terra Quantum</b></td><td>Quantum software and services (Switzerland)</td><td>$3.5B in the SPAC deal</td><td>Signed SPAC merger with Axiom Intelligence Acquisition Corp 1; planned ticker TQ; aiming to close in the second half of 2026</td><td><span class="odds o4">Likely</span></td></tr>
+        <tr><td><b>EigenQ</b></td><td>Quantum computing company</td><td>~$3.0B enterprise value</td><td>SPAC with Silicon Valley Acquisition Corp; draft S-4 filed Aug 2026; planned ticker EIGQ; targeting Q4 2026</td><td><span class="odds o4">Likely</span></td></tr>
+        <tr><td><b>SEEQC</b></td><td>Superconducting chips with built-in control (New York)</td><td>~$1B</td><td>Merger with Allegro Merger Corp plus a separate IPO filing as SEQC; already slipped past its mid-2026 target</td><td><span class="odds o3">Likely, but delayed</span></td></tr>
+        <tr><td><b>Quantisimo</b> (SEALSQ)</td><td>New quantum company carved out of WISeKey/SEALSQ</td><td>~$575M</td><td>Non-binding letter with SPAC GigCapital8; aiming for Q1 2027</td><td><span class="odds o2">Possible</span></td></tr>
+        <tr><td><b>Quantum Art</b></td><td>Trapped-ion computers (Israel)</td><td>$140M Series A</td><td>Reported in advanced SPAC talks at $2–5B (July 2026); no deal announced</td><td><span class="odds o2">Possible</span></td></tr>
+        <tr><td><b>Classiq</b></td><td>Quantum programming software (Israel)</td><td>$200M+ raised</td><td>Reported in SPAC talks at $2–5B; may raise one more private round first</td><td><span class="odds o2">Possible</span></td></tr>
+        <tr><td><b>Origin Quantum</b></td><td>China's leading superconducting builder</td><td>~¥21B pre-money</td><td>Preparing a Shanghai STAR Market IPO since Sept 2025; hard for US investors to buy</td><td><span class="odds o2">Possible</span></td></tr>
+        <tr><td><b>PsiQuantum</b></td><td>Photonic computers (California)</td><td>$7B (Sept 2025)</td><td>No filing. Builds are expensive and Brisbane is late, so it will need more money, but Quantinuum's IPO shows the door is open. The one to watch.</td><td><span class="odds o2">Possible, more likely 2027+</span></td></tr>
+        <tr><td><b>Atom Computing</b></td><td>Neutral-atom computers, Microsoft's partner</td><td>$100M Series C (June 2026)</td><td>No filing. Delivering Magne in Denmark would be a natural listing moment.</td><td><span class="odds o1">Unlikely soon</span></td></tr>
+        <tr><td><b>QuEra</b></td><td>Neutral-atom computers (Boston)</td><td>$230M+; reported $750M–1B</td><td>No listing plans; backed by Google, SoftBank and Nvidia</td><td><span class="odds o1">Unlikely soon</span></td></tr>
+        <tr><td><b>Photonic Inc.</b></td><td>Spin-photon computers (Canada)</td><td>$2B (May 2026)</td><td>Just raised; no IPO mentioned</td><td><span class="odds o1">Unlikely soon</span></td></tr>
+        <tr><td><b>Oxford Quantum Circuits</b></td><td>Superconducting computers (UK)</td><td>£260M Series C (June 2026)</td><td>CEO calls Quantinuum the "trailblazer" for quantum IPOs, but no plans announced</td><td><span class="odds o1">Unlikely soon</span></td></tr>
+        <tr><td><b>Quantum Machines</b></td><td>Control systems (Israel)</td><td>~$170M Series C (2025)</td><td>Reportedly raising a new private round</td><td><span class="odds o1">Unlikely soon</span></td></tr>
+        <tr><td><b>Alice &amp; Bob, Riverlane, Q-CTRL, Bluefors</b></td><td>Cat qubits, error correction, software, fridges</td><td>Various</td><td>No listing news</td><td><span class="odds o1">Unlikely soon</span></td></tr>
+      </tbody>
+    </table></div>
+    <p class="foot">This is a judgment call, not a prediction. SPAC deals can collapse before closing, and a weak market for quantum stocks would delay listings. The 2026 listings have had mixed results (see the table above), which is a reason to wait for some trading history before buying a new listing.</p>
+  </section>
+
+  <section class="block">
+    <h2>Six ways to play it</h2>
+    <p class="sub">The same industry pays different companies at different times. Toolmakers and big tech get paid now from other businesses; the pure plays only pay off if useful machines arrive on schedule. Matching the bet to how long you can wait matters as much as picking the company.</p>
+    <div class="themes" id="themes"></div>
+  </section>
+
+  <section class="block static" id="roadmap">
+    <h2>The roadmap: what's promised, and when</h2>
+    <p class="sub">Companies' own targets, plus the encryption deadlines governments have set. Quantum timelines have slipped before (PsiQuantum's Brisbane site is about a year late), so treat these as goals.</p>
+    <ol class="timeline">
+      <li><b class="yr">2026</b><ul><li>IBM expects quantum advantage to be confirmed by researchers, and plans its Kookaburra module.</li><li>Atom Computing and Microsoft's Magne (50 logical qubits) due late 2026 or early 2027.</li><li>Pasqal targets a 250-qubit advantage demonstration; D-Wave's first gate-model system.</li></ul></li>
+      <li><b class="yr">2027</b><ul><li>Quantinuum's Sol; IonQ's first system at Nvidia's research center.</li><li>NSA: new national-security systems must support post-quantum encryption.</li><li>IonQ claims 800 logical qubits (the most aggressive target in the industry).</li></ul></li>
+      <li><b class="yr">2028</b><ul><li>IBM: 1,000+ qubits and 15,000 operations.</li><li>Pasqal's Centaurus; PsiQuantum's Chicago site, possibly.</li></ul></li>
+      <li><b class="yr">2029</b><ul><li>The big target year: IBM Starling (200 logical qubits), Quantinuum Apollo, and Microsoft's pulled-forward goal for a scalable Majorana machine.</li><li>Pasqal targets about 100 logical qubits.</li></ul></li>
+      <li><b class="yr">2030</b><ul><li>NIST's draft plan deprecates RSA-2048 and today's elliptic-curve encryption.</li><li>PsiQuantum's Brisbane machine now looks closer to this date.</li><li>IonQ claims 80,000 logical qubits.</li></ul></li>
+      <li><b class="yr">2033</b><ul><li>IBM Blue Jay (2,000 logical qubits) from 2033.</li><li>DARPA's test year: is a useful, utility-scale machine possible by now?</li></ul></li>
+      <li><b class="yr">2035</b><ul><li>All quantum-vulnerable encryption disallowed by NIST; NSA's deadline for all national-security systems.</li><li>McKinsey forecasts a $43–71B quantum computing market.</li></ul></li>
+    </ol>
+  </section>
+
+  <section class="block static" id="qday">
+    <h2>Q-Day: the encryption problem</h2>
+    <p class="sub">"Q-Day" is the day a quantum computer can break the encryption that protects bank logins, Bitcoin wallets and government secrets. It's the clearest real-world reason governments are spending on quantum, and on defending against it.</p>
+    <div class="cards">
+      <div class="card p"><div class="fig">&lt;1M</div><h3>noisy qubits could break RSA-2048 in under a week</h3><p>Google's Craig Gidney (May 2025), down from 20 million in 2019. 2026 papers claim far fewer, though none has been built.</p></div>
+      <div class="card p"><div class="fig">28–49%</div><h3>chance of a code-breaking machine within 10 years</h3><p>Global Risk Institute's 2026 expert survey, the highest it has ever recorded; 69% of experts put it at 50% or more within 15 years.</p></div>
+      <div class="card p"><div class="fig">Now</div><h3>"Harvest now, decrypt later"</h3><p>Spies can copy encrypted data today and unlock it once a big enough machine exists, which is why the switch has to start years early.</p></div>
+      <div class="card h"><div class="fig">2024</div><h3>new encryption standards are ready</h3><p>NIST finished its first post-quantum standards (ML-KEM and two signature schemes) in August 2024 and picked HQC as a backup in 2025.</p></div>
+      <div class="card h"><div class="fig">2027–35</div><h3>deadlines to switch</h3><p>NSA requires post-quantum support in new systems from 2027 and everywhere by 2035; NIST deprecates RSA and ECC in 2030; the EU targets 2030 for high-risk systems.</p></div>
+      <div class="card c"><div class="fig">LAES · ARQQ · BTQ</div><h3>small listed post-quantum security plays</h3><p>SEALSQ, Arqit and BTQ are tiny and volatile. Private SandboxAQ (valued above $5.6B) is the biggest specialist; large chip and security companies will also capture much of this spending.</p></div>
+    </div>
+  </section>
+
+  <section class="block static" id="gov">
+    <h2>Government money</h2>
+    <p class="sub">Governments are the biggest buyers and backers of quantum today. In 2026 the US went a step further and started taking ownership stakes.</p>
+    <div class="cards">
+      <div class="card p"><div class="fig">$2.0B</div><h3>US CHIPS equity letters of intent (May 2026)</h3><p>IBM $1B, GlobalFoundries $375M, and $100M each for Atom Computing, D-Wave, Infleqtion, PsiQuantum, Quantinuum and Rigetti, plus $38M for Diraq. D-Wave, Rigetti and Quantinuum were finalized on Sept 8; Rigetti's shares went to the government at $12.92.</p></div>
+      <div class="card p"><div class="fig">11</div><h3>companies in DARPA's QBI Stage B</h3><p>Atom Computing, Diraq, IBM, IonQ, Nord Quantique, Photonic, Quantinuum, Quantum Motion, QuEra, Silicon Quantum Computing and Xanadu. Microsoft and PsiQuantum are in the final phase of a related program. Rigetti and D-Wave aren't on the list.</p></div>
+      <div class="card p"><div class="fig">$625M</div><h3>DOE renewal of five national quantum centers</h3><p>Over up to five years (Nov 2025). A reauthorization of the National Quantum Initiative passed committees in both houses in April 2026.</p></div>
+      <div class="card h"><div class="fig">$500M · A$940M</div><h3>States and allies backing PsiQuantum</h3><p>Illinois is funding a quantum park in Chicago with PsiQuantum as anchor; Australia and Queensland committed A$940M to its Brisbane site.</p></div>
+      <div class="card h"><div class="fig">£670M · ¥50B</div><h3>UK and Japan</h3><p>The UK funded its National Quantum Computing Centre for ten years (June 2025); Japan put about ¥50B into Fujitsu, startups and a new national facility.</p></div>
+      <div class="card c"><div class="fig">¥1T</div><h3>China's hard-tech fund</h3><p>A roughly $138B government venture fund covering quantum, AI and chips (March 2025). Chinese quantum firms are lining up for Shanghai IPOs.</p></div>
+    </div>
+  </section>
+
+  <section class="block static" id="hype">
+    <h2>Hype check: the risks</h2>
+    <p class="sub">Things to keep in mind before buying any quantum stock.</p>
+    <div class="cards">
+      <div class="card c"><div class="fig">~$1.4B</div><h3>The whole industry's revenue is small</h3><p>QED-C estimates about $1.4B of quantum computing revenue in 2025, rising to about $3B by 2028. Listed quantum companies are worth many times that.</p></div>
+      <div class="card c"><div class="fig">~$895M</div><h3>Insiders have been selling</h3><p>Insiders at IonQ, Rigetti, D-Wave and Quantum Computing Inc. sold roughly $840–930M of stock over several years through mid-2026. Some of it is routine tax selling on stock pay.</p></div>
+      <div class="card c"><div class="fig">Dilution</div><h3>New shares keep coming</h3><p>Pure plays fund their losses by selling stock; IonQ and QUBT built multi-billion-dollar cash piles that way. The government stakes are also new shares, sold at a discount.</p></div>
+      <div class="card c"><div class="fig">2025</div><h3>Even experts flip-flop on timing</h3><p>Nvidia's Jensen Huang said in January 2025 that useful quantum was 15–20 years away (the stocks crashed), then said in March that he'd been wrong.</p></div>
+      <div class="card c"><div class="fig">Disputed</div><h3>Claims get challenged</h3><p>D-Wave's 2025 "supremacy" result and Microsoft's Majorana qubits were both questioned by outside researchers. Wait for independent confirmation.</p></div>
+      <div class="card c"><div class="fig">Targets</div><h3>Analyst targets lag</h3><p>Many targets were set near the highs, before the July selloff, and some stocks have only one to four analysts. A +100% "upside" here says more about the stale target than the future.</p></div>
+    </div>
+  </section>
+
+  <section class="block static" id="own">
+    <h2>How to own it</h2>
+    <p class="sub">Four ways in, from least to most risky.</p>
+    <div class="labs">
+      <article class="lab">
+        <div class="hd"><h3>The basket</h3><span class="tag">ETF</span></div>
+        <div class="stats">
+          <div><b id="qtumpx">$154</b><span id="qtumsub">QTUM, Defiance Quantum ETF</span></div>
+          <div><b>−16%</b><span>QTUM in the July selloff month, versus −30 to −39% for the pure plays</span></div>
+        </div>
+        <p class="disc" style="font-size:14px;color:var(--ink)">QTUM holds dozens of quantum and computing-hardware stocks, so you own the theme without betting on one winner. It includes many big chip and tech companies, so it moves less than the pure plays in both directions. Check its current holdings and fees before buying.</p>
+      </article>
+      <article class="lab">
+        <div class="hd"><h3>Big tech and toolmakers</h3><span class="tag">lower risk</span></div>
+        <div class="own">
+          <button type="button" data-go="ibm"><b>IBM</b><span>Clearest roadmap; $1B CHIPS letter of intent</span><span class="d">direct lab</span></button>
+          <button type="button" data-go="honeywell"><b>HON</b><span>About 48% of Quantinuum's votes</span><span class="d">indirect</span></button>
+          <button type="button" data-go="nvidia"><b>NVDA</b><span>NVQLink, CUDA-Q, and private stakes</span><span class="d">picks &amp; shovels</span></button>
+          <button type="button" data-go="google"><b>GOOGL</b><span>Willow and Quantum Echoes; QuEra investor</span><span class="d">direct lab</span></button>
+        </div>
+      </article>
+      <article class="lab">
+        <div class="hd"><h3>Pure plays</h3><span class="tag">high risk</span></div>
+        <div class="own">
+          <button type="button" data-go="quantinuum"><b>QNT</b><span>Most accurate machines; below its IPO price</span><span class="d">trapped ion</span></button>
+          <button type="button" data-go="ionq"><b>IONQ</b><span>Most revenue; buying a lot</span><span class="d">trapped ion</span></button>
+          <button type="button" data-go="rigetti"><b>RGTI</b><span>Own fab; US government is a shareholder</span><span class="d">superconducting</span></button>
+          <button type="button" data-go="dwave"><b>QBTS</b><span>Sells optimization today</span><span class="d">annealing</span></button>
+        </div>
+      </article>
+      <article class="lab">
+        <div class="hd"><h3>New listings and post-quantum security</h3><span class="tag">very high risk</span></div>
+        <div class="own">
+          <button type="button" data-go="infleqtion"><b>INFQ</b><span>Neutral atoms plus clocks and sensors</span><span class="d">SPAC 2026</span></button>
+          <button type="button" data-go="pasqal"><b>PSQL</b><span>Neutral atoms; Aramco customer</span><span class="d">SPAC 2026</span></button>
+          <button type="button" data-go="iqm"><b>IQMX</b><span>Europe's system seller</span><span class="d">SPAC 2026</span></button>
+          <button type="button" data-go="sealsq"><b>LAES</b><span>Post-quantum security chips</span><span class="d">PQC</span></button>
+        </div>
+        <p class="disc">A common approach for a speculative theme is to keep it a small part of a portfolio and size each pure play so that losing most of it would be survivable. That's general practice, not advice for your situation.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="block sources">
+    <h2>Sources</h2>
+    <ol id="srclist"></ol>
+    <p class="foot">Prices and analyst targets come from Yahoo Finance through this site's daily update (Oct 7, 2026, midday prices on first publish). Company facts come from the cited reporting as of early October 2026. The IPO odds, risk levels and leader picks are my own judgment. This page is research for your own decisions and is not financial advice.</p>
+  </section>
+</div>

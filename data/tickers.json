@@ -334,5 +334,17 @@
  "qtum": {
   "symbol": "QTUM",
   "yahoo": "QTUM"
+ },
+ "pasqal": {
+  "symbol": "PSQL",
+  "yahoo": "PSQL"
+ },
+ "btq": {
+  "symbol": "BTQ",
+  "yahoo": "BTQ"
+ },
+ "tower": {
+  "symbol": "TSEM",
+  "yahoo": "TSEM"
  }
 }

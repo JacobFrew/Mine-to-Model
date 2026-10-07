@@ -1,6 +1,9 @@
 # Mine to Model
 
-An interactive map of the AI data center supply chain, from uranium, gas, copper and chips to the companies that buy the compute. It shows stock prices, analyst targets and upside, and updates itself every morning at 6am Pacific.
+Two interactive supply-chain maps with stock prices, analyst targets and upside, updated every morning at 6am Pacific:
+
+- **AI & power** (`index.html`): the AI data center chain, from uranium, gas, copper and chips to the companies that buy the compute.
+- **Quantum computing** (`quantum.html`): from helium-3 and dilution fridges to the qubit builders, clouds and customers, plus who's leading, the 2026 listings, and which private companies may go public.
 
 Same setup as Open Brain: **GitHub** holds the code, **Vercel** hosts the site, **Supabase** stores your watchlist, and a **Telegram** bot sends alerts. Build it one level at a time. Each level works on its own.
 
@@ -16,7 +19,11 @@ Same setup as Open Brain: **GitHub** holds the code, **Vercel** hosts the site, 
 ## What's in this folder
 
 ```
-index.html                          the website (the map, table and themes)
+index.html                          the AI & power page (and the shared page engine)
+quantum.html                        the quantum computing page (generated; see below)
+config.js                           web app settings shared by both pages (Level 3 keys go here)
+src/quantum/                        the quantum page's content: companies, links, text
+scripts/build_quantum.py            rebuilds quantum.html from src/quantum/ and index.html
 data/stocks.json                    prices and targets; the daily job rewrites this
 data/tickers.json                   which ticker to fetch for each company
 data/names.json                     company names (used in alert messages)
@@ -40,7 +47,7 @@ On a Mac, Finder hides folders that start with a dot, so you may not see `.githu
 
 ### 2. Upload the files
 1. On the new repo's page, click **uploading an existing file**.
-2. Drag in everything from this folder: `index.html`, `README.md`, `.gitignore`, and the `data`, `scripts` and `supabase` folders.
+2. Drag in everything from this folder: `index.html`, `quantum.html`, `config.js`, `README.md`, `.gitignore`, and the `data`, `scripts`, `src` and `supabase` folders.
 3. Click **Commit changes**.
 
 The browser uploader often skips the hidden `.github` folder, so add the schedule file by hand:
@@ -107,8 +114,8 @@ This creates a `watchlist` table where each person can only see their own rows.
 ### 3. Connect the website
 1. In Supabase, open **Project Settings → API** (in newer versions, **Data API** and **API Keys**).
 2. Copy the **Project URL** and the **anon public** key.
-3. In GitHub, open `index.html` and click the pencil icon to edit.
-4. Near the top, find `window.MTM_CONFIG` and paste both values between the quotes:
+3. In GitHub, open `config.js` and click the pencil icon to edit.
+4. Find `window.MTM_CONFIG` and paste both values between the quotes:
 
 ```js
 window.MTM_CONFIG = {
@@ -118,14 +125,14 @@ window.MTM_CONFIG = {
 };
 ```
 
-5. Commit. Vercel redeploys.
+5. Commit. Vercel redeploys. Both pages share this file, so the watchlist works on both.
 
 ### 4. Use it
 1. On your site, a **Watchlist** box appears next to the legend. Enter your email and click **Email me a sign-in link**, then open the link from your email.
 2. Tap any company. The side panel now has **Add to watchlist**, a buy price and a notes box.
 3. Starred companies show a ★ on the map. The table gets a **★ My watchlist** filter, and "Since yesterday" adds a **Your watchlist** column.
 
-The anon key is meant to be public. The security comes from the Row Level Security rules in `schema.sql`, which stop anyone else from reading or changing your rows. Never put the **service role** key in `index.html`.
+The anon key is meant to be public. The security comes from the Row Level Security rules in `schema.sql`, which stop anyone else from reading or changing your rows. Never put the **service role** key in `config.js` or any page.
 
 ---
 
@@ -160,7 +167,8 @@ You should get a Telegram message within a few minutes. After the test, set the 
 ## Adding a company or fixing a ticker
 
 - **To track another ticker:** add a line to `data/tickers.json`, for example `"newco": {"symbol": "NEWC", "yahoo": "NEWC"}`.
-- **To show the company on the map:** it also needs an entry in the `N` list inside `index.html`. That's the part to ask Claude for. Paste the request together with the current `index.html` and it can add the company with its links.
+- **To show the company on the map:** it also needs an entry in the `N` list inside `index.html` (AI & power) or `src/quantum/data.js` (quantum). That's the part to ask Claude for.
+- **After editing `src/quantum/`** (or the shared engine in `index.html`), run `python scripts/build_quantum.py` to regenerate `quantum.html`.
 - **Foreign listings** use Yahoo's suffixes: `.L` London, `.TW` Taiwan, `.KS` Korea, `.PA` Paris. Those stocks show prices in their local currency.
 
 ## If Yahoo stops working
